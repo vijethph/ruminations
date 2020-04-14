@@ -1,0 +1,34 @@
+# Things to do instead of distracting yourself mindlessly
+
+1. You don't need to multitask. You don't need 24/7 entertainment. Entertainment is what you make it. All those YouTubers don't have much to say that is relevant to you anyway - you're not missing out on anything. Music is best enjoyed in peace and without distractions, you don't need to reduce it to mere background noise. New information is best processed in peace and without distractions. Spamming memes to friends is not quality communication, so you might as well quit it.
+ > Do one thing at a time. Relax. There is time for everything that's really important and what's not important you can simply ignore.
+
+1. What? You already have work to do, but you're distracted? Internet browsing won't help you there. Go out for a brisk 5-minute walk. Or do 20 pushups if you're at home. Or have a glass of water. Or close your eyes for a minute. Then return to what you were doing before you got distracted. If you're feeling tired, then slow down rather than overloading your brain with even more information. Focus on the little details of what you're doing, if you find yourself stuck and unable to think. Reorganize your desk. Do something, just don't resort to mindless browsing. You know mindless browsing won't feel good, and you know you have other things you want to do that will make you feel good. Do them. Don't browse.
+
+2. You don't have work to do? There is always housework to be done and browsing won't do your chores. Tidy up the house & clean. Throw away things you don't need anymore. Go out shopping for things that you do need right now. Cook.
+
+3. Chores all done? Study to get better at what you're doing. Regardless of what you're doing, there are always new areas to improve in.
+
+4. Need a break from studying? Call friends to meet up, or go out to meet new people. Go have a beer in the bar, even if you don't plan on meeting anyone - just be around people for a while.
+
+5. People suck? Books don't. Read for pleasure. Go visit the library. Write a review for the last book you read.
+
+6. Books are boring? Go to the movies, go to theatre, go to a concert, go to an art gallery or a museum. Or just go out alone for a walk.
+
+7. Rainy day? No money for tickets? Listen to music but don't multitask - focus all your attention on what you're listening to.
+
+8. Heard all your albums a hundred times over? Improve your foreign language skills.
+
+9. Not planning to travel any time soon? Play some guitar.
+
+10. Neighbors complaining? Watch a film or TV series but really watch it - don't be on your phone while you're watching.
+
+11. Nothing good to see? Play something.
+
+12. What? You don't feel like doing anything? Take an actual nap, instead of burning yourself out even more by browsing. Write about your day in your diary (make a diary if you don't have one). Reflect on what happened today. Check what you have coming for tomorrow. Meditate. Take a shower. Relax, man.
+
+
+-------------
+## Acknowledgements:
+
+I [(@vijethph)](https://github.com/vijethph) just found this while browsing Reddit, thought it was good and put up here, with some modifications of my own. The original work, and credit all goes to whoever put this up in Reddit (I don't know his/her name). So, I thank him/her for giving this valuable material.

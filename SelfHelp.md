@@ -1,0 +1,165 @@
+# Self-Help Cheatsheet.
+
+## **Success:**
+
+1. Optimism makes people perform better. Most importantly, the optimism that literally anything can be defeated with enough effort. Every obstacle is *merely* a challenge, not a threat.
+
+2. Habits are what form and deform your life. Humans are short-sighted. Build a ritual that will, much like compound interest, build an amazing life. Working out twice a day for a week won’t do much. But a year could make for a transformation. Failure is not one dramatic fall, but a series of small failures, compounded over a longer period.
+
+3. Scale slowly. An overnight success still had 1 step up goals every hour. A billion dollar company once only had a goal of a million dollars. Set numerous small, achievable, bite sized goals - as opposed to a few, huge chunky goals.
+
+4. Authenticity is king. People enjoy authentic people, respect authentic people and welcome authentic people.
+
+5. Common sense beats all rules, stipulations and otherwise. You likely know most of what you learn, it’s simply being reorganized to fit your mind better. When it’s time to take action, trust that you know what you’re doing and focus solely on moving.
+
+6. Success comes from trying something, failing and modifying the action - Thousands of times. No amount of preparation (beyond the basic) can prepare you for the first day with sharks.
+> ACTION + MODIFICATION = RESULTS
+
+7. Show small amounts of gratitude every day. Make it apart of your ritual. The gratitude forces you to focus on the things you are happy about. Small gratitude is low commitment and high reward.
+
+8. Establish 3 to 20 second barriers between bad habits. Take batteries out the remote. Put junk food in trunk of car. It won’t stop you completely. But it will decrease significantly. Make positive habits easier. Pack a healthy lunch.
+
+9. A huge part of succeeding at something is simply showing up. Even if that means you just walked in the door and back out. If you show up, the math says you’ll succeed, eventually.
+
+10. Go 150% + beyond what you are expected to do. This is a 100% way to gain immediate traction. Applied with consistency can skyrocket results.
+
+11. Practice task isolation. The only thing that matters in that moment is the task at hand. Work on that task only until you are ready to stop. Nothing else matters until.
+
+12. Constantly be evaluating yourself. Every year, every month, week, day, hour. - Do this 100% objectively and healthily. The more you look at yourself objectively and decide what you’re doing right and wrong, the better feedback you can use to improve.
+
+13. If you are always the smartest person in the room, you’re probably in a room full of idiots or you’re lying to yourself.
+
+14. Double down on your strengths. Neutralize your weaknesses. Make them just capable enough to swim still water.
+
+15. Adaptation is the key to survival. You cannot run over a jungle, but with the right small, frequent adjustments, you can run through a jungle.
+
+16. Discipline is not just following a plan when you need a plan, but following the plan when you’ve succeeded. Make a plan and follow it, regardless of your emotions.
+
+17. When you first wake up, try breathing faster and faster until hyperventilation. It makes your body kick into awake mode quickly.
+
+18. Try fasting from a bad habit completely. Replace it with something less bad. Over time, you can replace a lot of small bad habits with less bad habits and get big change.
+
+19. Organization, habits and the process of planning is actually all simply tools to clear space in your brain. You cannot use a car efficiently if it is jammed to the ceiling with clothes and furniture that belong in your house. And the furniture and clothes can’t be used correctly either.
+
+20. Take stock in the understanding that 90% of successful people are doing a lot of hustle underneath the glam and money. They wake up early, they skip parties and they work - A LOT.
+
+21. Automate literally every task you do not enjoy. It will make your life focus on the things you do enjoy.
+
+22. Most habits can be changed by finding the belief rooted to it and finding all the evidence you can to break it.
+`“The gym is a chore.”`
+Watch documentaries about people who love the gym.
+`"I love sugary foods"`
+Watch documentaries about sugar causing disease. You are what you subscribe to.
+
+23. Tell no one your goals. Talking gives you a rush of endorphins and dopamine. You “dope yourself out” on talking and never get anywhere.
+
+24. No amount of regret can bring back the dead. Love immensely and give your friends and family what they deserve as soon as possible and as often as possible.
+
+25. Chain together successful tasks and create the illustration of commitment, thus reducing your likelihood to miss out. - Crossing off days on a calendar chains a habit and thus reduces the chance to break it.
+
+26. Stage every commitment so you only give what you get back, and scale it slowly. Put in 1 cent, if it gives back 1 cent, then put in 5 cents. If it gives back 5 cents, continue. Never Give 100% to an idea you haven’t tested at 10%, 25%, 50%, 75% etc.
+
+27. Never show your cards first in a negotiation. The offer they have in mind may be much higher than you’re thinking.
+
+28. In a dispute, ask for proof of everything. Make the process draining for the other party if you’re in the right and they are forcing you to wade through mud.
+
+
+-------------------
+## **Finance:**
+
+1. Every successful person saves money. **EVERY. SUCCESSFUL. PERSON. SAVES. MONEY.** Save, at the very least, 10%.
+
+2. Every successful person invests. Invest in a bank, invest in real estate, invest in yourself. No matter how you invest, it’s the only way to grow. Spend your money on things that grow. - This includes your health.
+
+3. Do not skip on insurance. The peace of mind that disaster will not ruin you is worth the duty paid.
+
+4. One of the most common failures in business & personal is the mismanagement of funds. Be very meticulous with how you spend your money.
+
+
+-------------------
+## **Social**:
+
+1. Listen to people. Ask open-ended questions to get someone to talk. Why, what and how questions. To enhance listening, look for a one sentence life lesson to take from every story / interaction.
+
+2. You are upset because no one calls you to do things. So is the person who didn’t call you. Initiate activity. This is a solid way to be invited to more things, meet new people and have fun. 
+    * Group activities are always more comfortable.
+    * Have a specific plan in place of who, what, when, where & why.
+    * Sometimes the event will fall apart. This is common. Do it anyways. It’s worth it.
+    * Social people invite others out when they feel lonely. Antisocial people wait for a phone call. Antisocial people have a higher probability of being lonely.
+
+3. Traveling & expanding your social circle makes you more confident in who you are.
+
+4. Be 10% more excited than the person you are talking to in positive conversations.
+
+5. You have value to add to every interaction. Whether it’s with a CEO or a janitor. No matter your past - If you’ve burned many bridges, at least you had bridges to burn.
+
+6. If 10 people in a row reject you as a friend, that’s only .000000015 percent of the world’s population. You’ve got a whole lot more to choose from.
+
+7. Small talk is the door to deep friendship. You must make small talk first. You first said “Hi” to your significant other, you first had an interview at a company. People need to know you won’t stab them before they want to hang out.
+
+8. Letting go of the thought that people have to like you is the best decision you will ever make. People would have liked or disliked you regardless of how lightly you tread.
+
+9. Talk to people’s emotions. A metalhead and a classical music lover can connect on how emotional they get during a raw, deep piece.
+
+
+-----------------
+## **Health:**
+
+1. Get 6-8 hours of sleep. It can cause huge detriments to your wellbeing to get less.
+
+2. Go to sleep and wake up at the same time every day.
+
+3. Sleep is one of the more important aspects of health, right beside nutrition and exercise. Master these three and you are doing well.
+
+4. Optimum sleep temperature is 61-64 degrees F. Optimal sleep warm up is 1 hour before bed to begin process attempting sleep. - No screens, no exercise, no stress.
+
+5. Meditation provides a range of health benefits.
+
+6. Exposure to nature prevented hay fever and other illnesses in cavemen.
+
+7. Stem cells regrow the body.
+
+8. Alcohol consumption linked to many diseases we didn’t think - such as Alzheimer's, Dementia, Cancer, etc. Alcohol companies are funding research to make alcohol okay or “healthy”.
+
+9. Not exercising is worse for your health than smoking, diabetes and heart disease.
+
+10. Tobacco use linked to a quarter of a billion life-years lost vs. illegal drugs accounting for only tens of millions.
+
+11. Education linked to better health than
+income. Intelligent people make smarter health decisions that prevent the need for reactive, potentially too-late healthcare.
+
+12. Dropping smartphones from evening activity led to 93.6% of participants opting to keep their phones off at night. - Increased happiness, focus & wellbeing.
+
+13. Dark chocolate is a superfood. Good for health and mind.
+
+
+---------------------
+## **Business:**
+
+1. **WHO** matters most, then **WHY**, then **HOW**, then **WHAT**, then **WHEN**. Hire the right people with the right motives who follow a great plan and what you do and when you do it should work out on it’s own.
+
+2. Facebook, Uber, AirBnb, eBay - All got their start connecting two people together who could help each other. None have inventory, shipping centers, etc.
+
+3. Buy low, sell high. Every business is in the business of buying something cheaper than they sell it. Simplify your business by asking what you’re buying for cheap, and selling for more.
+
+4. Personal letters are the only way to get through a noisy world today. Find a way to personalize every communication you send.
+
+5. The product will sell itself. Build a product that people will talk about.
+
+6. Test EVERYTHING. We live in a hyper-feedback world. Run test after test and build on what works. Methodically test every single aspect of your business.
+
+7. “Big Picture” thinkers don’t work well in a startup. You need detail oriented thinkers to calculate every move and thought.
+
+8. Ideas are like treadmills. It can be a catalyst to something great, but will require you to execute methodically and frequently. A treadmill without work is worthless.
+
+9. One of the most common failures in business & personal is the mismanagement of funds. Be very meticulous with how you spend your money.
+
+10. The best marketing is word of mouth. Talk to the loudest birds and get noticed effortlessly.
+
+11. Know your worth. Ask for that raise. It costs money to replace an employee, and it could be a significant amount.
+
+
+-------------
+## Acknowledgements:
+
+I [(@vijethph)](https://github.com/vijethph) just found this while browsing Reddit, thought it was good and put up here, with some modifications of my own. The original work, and credit all goes to whoever put this up in Reddit (I don't know his/her name). So, I thank him/her for giving this valuable material.

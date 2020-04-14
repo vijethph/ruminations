@@ -1,0 +1,74 @@
+# The Feynman Technique
+
+The Feynman Technique is a method of learning that is incredibly effective for deep understanding and information retention. How many time have you learned something fast only to forget how to do it weeks later? Maybe it was the Pythagoras theorem, back in high school when you crammed for your math exam. Now when you friend asks you to recite it, all you can do is shrug and say
+
+``` “What the fuck is that? A Harry Potter spell?”```
+
+The problem was that you never learned the thing properly, you simply stored it in the temporary storage section of your brain. This is how many people go about learning, reciting things only to forget them later.
+
+> There is a big difference between knowledge and wisdom: knowledge is having the information, wisdom is knowing how to use it.
+
+The Feynman Technique is a mental model that will help you gain sufficient wisdom in any endeavour.
+**Richard Feynman** was a Noble Prize-winning theoretical physicist who was best known for his work in the fields of quantum mechanics, quantum electrodynamics, superfluidity and other groovy shit. To say the least his was a smart dude, he was often called the ‘Great Explainer’ for his uncanny ability to teach complicated principles in layman terms that everybody could understand.
+  Feynman claims that he wasn’t a naturally gifted physicist but managed to make it due to his learning style and hard work. Here is his notorious method for accelerated understanding.
+
+
+### **Step One:**
+
+Write the name of a concept that you want to learn about on top of a blank piece of paper.
+
+### **Step Two:**
+
+Write down an explanation of the concept using plain English. Pretend that you trying to teach it to the slowest person you know or a child. Assume the person has no idea what the hell you are talking about so make sure you cover everything you know simply.
+
+### **Step Three:**
+
+Read over your explanation and take note of the areas in which you are lacking the sufficient knowledge in order to articulate yourself properly. Take note of these areas and return to your source material until you have a better understanding Use a variety of materials: YouTube videos, books, and experts. Return to step two and simplify further.
+
+**Note: When you simply you are cutting out the slack, do not remove things that are important for understanding whatever you trying to learn. You are simply trying to be more concise.**
+
+### **Step Four:**
+
+Use the aid of simple analogies, diagrams, metaphors and anything else that can help you commit what you have learned to memory. Come at it from different angles to gain a deeper understanding of the topics.
+Einstein is often attributed to saying:
+
+> “If you can’t explain it simply, you don’t understand it well enough”
+
+The Feynman Technique will ensure that you understand any subject incredibly well.
+
+-----------
+
+## What Can You Learn Using The Method?
+
+To put it simply you can learn anything with the method from:
+
+* Computer Programming
+* Calculus
+* Physics
+* Economics
+* Chemistry
+* Mathematics
+
+Anything at all! You might have to modify the method slightly for some disciplines but the main underlying principle is what makes the method so effective.
+
+---------------
+
+## WHY IT WORKS:
+
+The Feynman Technique works for many reasons. Often when we are trying to learn new concepts we erroneously assume that we have learned them and understood them when in actuality we haven’t fully grasped the concepts.
+
+Feynman once said:
+
+> “The first principle is that you must not fool yourself and you are the easiest person to fool.”
+
+This is the first and most critical mistake that many make when trying to learn new things. Writing what you know and trying to simplify it exposes your gaps in understanding.
+
+The second reason it works is through the beauty of neural connections. Think back to 2 weeks ago when you went grocery shopping. Can you remember what you bought or what happened at the shops? Most likely not, your brain does not put much stock into the mundane. Now let’s assume 2 weeks ago you were shopping and you saw three firefighters running towards to deli section. Now that’s a memory you won’t forget, you might remember it for the rest of your life because it was out of the ordinary.
+
+The strongest neural connections are always formed with things that are out of the ordinary. This is why you can remember what you were doing when you heard about 9/11 or can vividly recall your first kiss.
+Now when you are learning and are up to step 4. You are forced to come up with analogies and metaphors to help you understand concepts. This simple process is out of the ordinary and allows your brain to have more stimulus to work with, more checkpoints to return to when you trying to recall a piece of information.
+
+---------------------
+## Acknowledgements:
+
+I [(@vijethph)](https://github.com/vijethph) just found this while browsing Reddit, thought it was good and put up here, with some modifications of my own. The original work, and credit all goes to whoever put this up in Reddit (I don't know his/her name). So, I thank him/her for giving this valuable guidance.

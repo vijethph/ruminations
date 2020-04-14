@@ -1,0 +1,212 @@
+# Procrastination
+
+Procrastination is not a time management problem. It is an emotion regulation problem - we delay activities which might make us feel not-so-good today and in the near future. Berking's emotional regulation technique is a scientifically verified counter measure.
+
+Behind procrastination, there is negative affect (thoughts, feelings, moods) about a particular task or the outcome of that task.
+
+Sometimes it is related to a fear of failure, low self-esteem, lack of confidence, feelings of incompetence, etc. These hidden anxieties paint the task in negativity and we end up delaying the task. We participate in aversive tasks which make us feel better in the short term to cope with the negative mood induced by the task.
+
+### **The proposed solution is emotional regulation.**
+
+* Choose the task you procrastinate.
+* Bring aversive and negative emotions & thoughts associated with the task into awareness.
+* Instruct yourself to tolerate those negative emotions such as boredom, fear of failure, fear of judgment, feelings of incompetence, etc.
+* Address those emotions by regulating your emotions in a structured manner. Begin with allowing those emotions to exist. Do not suppress them. Then tell yourself that you are strong, tough, and resilient. Finally, ascribe more emotional meaning to the task and emotionally commit to that task.
+
+-------------------
+
+
+# 86 ways to a better living
+
+1. Start your day with a glass of plain water
+
+2. Decide to be happy today
+
+3. Go for a pre breakfast walk
+
+4. Quit smoking
+
+5. Have a healthy breakfast every morning
+
+6. Laughter is the best medicine
+
+7. Spend time in a garden
+
+8. Take responsibilities for your emotions
+
+9. Practice a healthy diet
+
+10. Plan ahead
+
+11. Walk 10 000 steps daily
+
+12. Take a deep breath. It calms the mind
+
+13. Eat regular meals
+
+14. Maintain a healthy weight
+
+15. Listen to your body
+
+16. Include a variety of wholegrain in your healthy diet
+
+17. Talk to your neighbors
+
+18. Don't gossip
+
+19. See all relationship as fruitful
+
+20. Eat a rainbow of fruits and vegetables
+
+21. Keep a healthy perspective on work
+problems
+
+22. Exercise 5 times weekly
+
+23. Keep a sense of humor
+
+24. Eat a variety of nutrient-rich foods
+
+25. Surround yourself with positive image
+
+26. Avoid alcohol and narcotics
+
+27. Be kind to yourself
+
+28. Focus on quality sources of protein
+
+29. Don't compare your life to others
+
+30. Write down your worries
+
+31. Think positive
+
+32. Never skip meals
+
+33. Settle a quarrel before bedtime
+
+34. Go for regular medical check ups
+
+35. Forgive everyone
+
+36. Enjoy healthy fats and avoid unhealthy
+fats
+
+37. Give yourself a present on your birthday
+
+38. Watch a comedy
+
+39. Learn your natural sleep cycle
+
+40. Eat to live, not live to eat
+
+41. Let music fill your heart
+
+42. Discover the benefits of massage
+
+43. Tape a list of goals to your computer
+
+44. Drink at least 8 glasses of plain water
+daily
+
+45. Don't try to resolve everything in a day
+
+46. Never take work to bed
+
+47. Be kind and courteous to your family
+
+48. Downsize your portions
+
+49. Play gentle music quietly in your bedroom
+
+50. Sleep 6-8 hours daily
+
+51. Make time for laughter
+
+52. Limit sugar and salt intake
+
+53. Accept change
+
+54. Grow your own vegetables
+
+55. See life as a journey, not a destination
+
+56. Cut down on processed foods
+
+57. Cultivate positive challenges
+
+58. Do a few exercises during TV ad breaks
+
+59. Manage your stress level
+
+60. Grill, steam, bake and broil your food
+instead of frying
+
+61. Go on a mini-retreat for just one day
+
+62. Take up dancing or a team sport
+
+63. Life is too short to waste time hating
+anyone
+
+64. Avoid all-you-can-eat buffet
+
+65. Create positive self-image on the screen
+of your mind
+
+66. Practice safe sex
+
+67. Enjoy your meal with friends whenever
+possible
+
+68. Stop eating before you're full
+
+69. Time heals almost everything. Give time,
+time.
+
+70. Do some gardening
+
+71. You don't have to win every argument,
+agree to disagree
+
+72. Reduce, but don't deny food treats
+
+73. Write reviews of your most pleasurable
+experiences
+
+74. Climb the stairs at work instead of
+taking elevator
+
+75. Cross a bridge from a problem to a
+solution
+
+76. Take time to chew your food, relishing
+every mouthful
+
+77. Don't take yourself so seriously. No one
+else does.
+
+78. Write a "have done list"
+
+79. Find a silver lining in every cloud
+
+80. Eat a handful of unsalted nuts
+
+81. Give yourself the time and space to enjoy
+life
+
+82. Mix your exercise to prevent boredom
+
+83. See the light at the end of the tunnel
+
+84. Reduce caffeine intake
+
+85. Keep your promises
+
+86. Go to bed early
+
+
+-------------------
+## Acknowledgements:
+
+I [(@vijethph)](https://github.com/vijethph) just found this while browsing Reddit, thought it was good and put up here, with some modifications of my own. The original work, and credit all goes to whoever put this up in Reddit (I don't know his/her name). So, I thank him/her for giving this valuable material.
