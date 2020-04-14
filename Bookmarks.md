@@ -32,6 +32,7 @@
 - [Wikipedia](https://wikipedia.org)
 - [Wired](https://wired.org)
 
+#### Note: Some of the above bookmarks may not work because of wrong links, but they can be Google Searched easily. Yet to fix it.
 
 ## Other Bookmarks
 
