@@ -14,6 +14,4 @@ This is Collection of stuff I made while browsing the internet
 
 #### I'll be glad if anyone finds it helpful. Thank You.
 
-----------------
 
-#### Done By: Vijeth P H ([@vijethph](https://github.com/vijethph))
