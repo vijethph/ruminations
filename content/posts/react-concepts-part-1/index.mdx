@@ -1,0 +1,47 @@
+---
+title: React Concepts Part 1
+date: 2021-10-24
+description: Collection of React Concepts noted while watching videos
+slug: "/react-concepts-part-1"
+tags:
+  - React
+  - Web Development
+  - JSX
+---
+
+
+## JSX Limitations
+
+1. Cannot have adjacent root level JSX elements, only one element is allowed. We cannot return more than one "root" JSX element, and its also not possible to store more than one "root" JSX element in a variable. Solution: always wrap adjacent elements with a `div`. It doesn't have to be a `div`, any element can do the trick.
+    > Another approach is to return a native JS array, which has JSX elements as array items. But warning: each child in array should have unique "key" prop.
+2. The `div` approach leads to `div soup`, where we have too many nested React Components, and all those need `div`s.
+    > In bigger apps, we can easily end up with tons of unnecessary `div`s (or other elements) which add no semantic meaning or structure to the page, but are only there because of JSX requirement. A solution would be to create a `Wrapper` component, which just returns `props.children`, so any number of adjacent JSX elements can be enclosed.   
+
+--- 
+## Fragments
+React comes with a built-in wrapper component called Fragment, which can be accessed using `<React.Fragment>`, `<Fragment>` or use this method:
+```JSX
+return ( // this depends on project setup / build workflow for support
+    <>
+        <h2>Hi there!</h2>
+        <p>Hello everyone</p>
+    </>
+ );
+```
+Fragment is an empty wrapper component. It doesn't render any real HTML element to the DOM. But it fulfills JSX requirements.  
+ 
+---
+## React Portals
+Semantically and from a "clean HTML structure" perspective, having nested modals (and sidebars, drawers, other dialogs) isn't ideal. It is an overlay to the entire page, which is rendered separately. It is similar to styling a div like a button and adding an event listener to it: it'll work, but it is not a good practice.    
+React portals can help render code written for overlay elements in a different section of resultant page, without making changes to existing JSX code structure. Portals need 2 things:
+1. A place where the Component needs to be shifted to
+2. Let Component know that there is a portal to that place     
+To implement it, go to HTML file and add divs (with ids) along with `<div id="root">` as adjacent elements. Then call `ReactDOM.createPortal()` method. It takes 2 things: 
+1. React node to be rendered (as JSX), and 
+2. A pointer to the container in real DOM where this React node will be rendered (mentioned using `document.getElementById()`)
+
+---
+## References (refs)
+Refs allow us to get access to other DOM elements and work with them. With refs we can setup a connection between a HTML element which is being rendered in the end, and other JS code. To use it, call `useRef()` inside functional component body. It takes a default value which can be initialized (or left empty), and returns a value which allows to work with it later.       
+To connect a ref to a HTML element, use the `ref` prop (built-in). Ex: `<p ref={someRef} >Hello</p>`. For the first time React renders JSX code, it'll assign native DOM element (rendered for this HTML element) to declared ref variable.       
+The ref variable is an object, which always has a `current` prop, which holds the actual value that ref is connected with (real DOM node). This should not be used for manipulation (as React should handle it), but can be used for reading input. Components which use refs can be called as Uncontrolled Components, as they just fetch value using default HTML behaviour. Components which use state can be called as Controlled Components.    
