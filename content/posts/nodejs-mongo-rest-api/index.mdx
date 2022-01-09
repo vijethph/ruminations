@@ -357,7 +357,7 @@ The `{ new: true }` option in the `findByIdAndUpdate()` method is used to return
 
 ### Deleting a book
 
-```
+```js
 // Delete a book with the specified bookId in the request
 exports.delete = (req, res) => {
     book.findByIdAndRemove(req.params.bookId)
@@ -423,7 +423,7 @@ require("./app/routes/book.routes.js")(app);
 Run our Node.js application with command: `node server.js`.
 Open the terminal and create a new Book with the following command:
 
-```sh
+```bash
 curl -X POST \
     -H 'content-type:application/json' \
     -d '{"title":"Sunshine","summary":"A story about weather"}' \
@@ -434,7 +434,7 @@ If you do not receive any errors, you’ll see the book record for `Sunshine` ad
 
 Get all Books in database with the following command:
 
-```sh
+```bash
 curl -X GET http://localhost:8080/books
 ```
 

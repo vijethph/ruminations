@@ -1,0 +1,193 @@
+---
+title: TypeScript
+date: 2022-01-09
+description: Brief introduction to TypeScript concepts
+slug: "/typescript"
+tags:
+  - TypeScript
+  - Web Development
+  - Introduction
+---
+
+## Basic features
+- Alternative to JavaScript(superset - extends JavaScript with new features and syntax)
+- Allows us to use strict types (JavaScript uses dynamic types)
+- Supports modern features (arrow functions, let, const - similar to Babel compiler)
+- Extra features (generics, interfaces, tuples etc)
+- Browsers do not understand TypeScript, hence needs to be compiled into JavaScript
+
+## Installing
+```bash
+npm install -g typescript
+tsc inputfile.ts outputfile.js
+```
+tsc is the TypeScript compiler which converts TypeScript files into JavaScript. `outputfile.js` parameter isn't required if both TypeScript and JavaScript filenames are same. If JavaScript file doesn't exist, it will create a new one.
+tsc can watch over a file and compile it to JavaScript whenever any changes are made and saved. For that, just add `-w` parameter for tsc command. It also tells if any errors are present.
+
+
+## Basic Types
+In TypeScript, there is no Integer or Float type. They come under a single Number type. It will not allow variables to change types, but values can be changed. It infers the type of the variable declared, based on the value assigned to the variable. It also has access to JavaScript objects like Math and Date. We can define the type of variable passed into functions as an argument. Example:
+```js
+const double = (something: number) => {
+    return something * 2;
+}
+```
+Arrays maintain a strict type check. If an array with different types is required, it should be declared first. Variable holding the array cannot be changed for a different type, like string. Object properties maintain a strict type check as well. We cannot add/define new properties for an object once it is defined. Once an object is declared, it cannot be redefined by adding/removing properties or redefining existing property types; it should have the exact same structure as declared.    
+
+We can declare explicit types for variables without defining values for them, like: `let name: string;`. This will restrict the variable to have only values of that specific type. Examples:
+```ts
+let names: string[] // array of strings, but it is not initialize with empty array. It is just restricting the type of value it could have in future
+
+let ages: number[] = []; // declared explicit types with empty initialized array
+
+let mixed: (string|number)[] = []; // array of strings and numbers
+
+let mixedVar: string|boolean // variable which can have string or boolean
+
+let trait: object; // object type
+trait = [];  // allowed, because array is a kind of object
+
+let being: {   // specifically declaring object and properties types
+    name: string,
+    age: number
+}
+
+let greet: Function; // declaring function type without defining function body
+```   
+
+A union type allows one or more type of values for a variable / array. `any` type allows a variable to have any type of value, but it is not recommended for frequent usage as no errors are generated for wrong/missing values.
+```ts
+let something: any = 45;
+let mixedSomething: any[] = [];
+```
+
+## TS file config
+To initialize a .tsconfig file, use `tsc --init`. This file contains all TypeScript compiling configuration options:
+1. **target** defines output JS specification (can be ES5, ES6 etc).
+2. **module** allows us to use ES6 modules by specifying `es2015` for it, and `es6` for target.
+3. **rootDir** defines source file directory and **outDir** defines output file directory. Example values are `./src` and `./public` respectively.
+4. **include** (declared outside all definitions) defines that it should only compile files present inside specified directory, not outside of it. Ex: `"include" : [ "src" ]`.    
+After saving .tsconfig file, just invoke tsc / tsc -w to compile files.
+
+
+## Functions
+It is possible to add optional parameters to a function by placing question mark (?) with the variable. If it is not passed, but still used inside function, its value will be undefined. Always put required params at beginning, and optional params at the end. Example:
+```ts
+const add = (var1: number = 20, var2: number | string, var3?: number | string) => {
+    console.log("adding..."); // here var2 is union type, and var3 is optional
+    console.log(var1); // here var1 has default value 20 if nothing is passed to it, hence it is also optional
+}
+```
+TypeScript will infer the return type of a function based on the value returned, and automatically sets it to invoking variable. It can also be set explicitly like this:
+```ts
+const subtract = (var1: number, var2: number): string => {
+    return 'hello there'; 
+}
+```
+Function will return void if nothing is returned, which is compiled to `undefined` in JavaScript. Void is complete lack of any value, and it is different compared to undefined in JavaScript.     
+
+Function signatures are used to specify what type of function a variable can hold. They describe the general structure of a function by declaring types of arguments used, and type of value returned. Basic example is `() => void;` which specifies that function takes no arguments, and returns void. Function signature for above function would be something like this:
+```ts
+let subtractStructure : (somevar1: number, somevar2: number) => string;
+```
+
+## Type Aliases and DOM
+Type Aliases can be used to define types that are reused multiple times throughout the code. They can also be used to set object types. Example:
+```ts
+type stringOrNum = string | number;
+type objWithSomething = { name: string, uid: stringOrNum };
+
+let var1: stringOrNum;
+let someObj: objWithSomething;
+```
+TypeScript allows us to use the same DOM JavaScript query methods, element properties and event listeners, with some exceptions. If we try to access a DOM element's property, TypeScript throws an error saying it may be null, because it doesn't have access to the HTML page during development. We can workaround that by adding an exclamation mark (!) in declaration. Example:
+```ts
+const anchor = document.querySelector("a")!; // explicitly declaring that a value definitely exists for this element
+console.log(anchor.href); // here anchor is of type HTMLAnchorElement
+```
+TypeScript also has special types for every DOM element. But it will default to Element type if we query HTML elements using id or class. Typecasting can be used to define the type of element that a query method can return, basically casting it to be of certain type. Example:
+```ts
+const formVar = document.querySelector(".last-form") as HTMLFormElement; // now formVar is considered to be HTMLFormElement type instead of Element type
+
+formVar.addEventListener("submit",(e: Event) => {
+    e.preventDefault();
+});
+
+// extra: HTMLInputElement.valueAsNumber returns input value as number instead of string (JS default)
+```
+
+## Classes
+Classes in TypeScript are similar to those in JavaScript. It is also possible to create an array of class objects, similar to string arrays and object arrays. By default, all properties of a class are public. Private properties are not accessible outside of class. Another access modifier is `readonly` which makes a property read-only from both outside and inside of a class, and not allowing to change it anywhere. We can skip declaring variables inside class by using access modifiers directly in parameters of constructor function. Example:
+```ts:title=Invoice.ts
+export class Invoice {
+    private clientName: string;
+    public amount: number; // public is an access modifier. As it is default, no need to explicitly specify it.
+    
+    constructor(cName: string, amt: number){
+        this.clientName = cName;
+        this.amount = amt;
+    }
+    
+    giveSomething(){
+        return `${this.clientName} owes ${this.amount} of money`;
+    }
+}
+```
+To use ES6 modules, add `type="module"` to `<script>` tag. But TypeScript always compiles different .ts files into .js files, requiring multiple requests in web. Webpack can solve this by compiling files into a single file, and also ensuring older browsers support.   
+```ts:title=app.ts
+import { Invoice } from "./Invoices.js"; // .js file because we're importing compiled JS file 
+const invOne = new Invoice('John',200);
+let invoicesArray: Invoice[] = []; // only Invoice objects are allowed for this array 
+```
+   
+## Interfaces
+An interface allows us to enforce a certain structure of a class or an object. It can be used to describe types of properties and return types of methods. It is different from a class as it is not used to generate objects. Objects which are declared using an interface must follow the structure set by that interface; they cannot have anything else. Use `implements` keyword for implementing an interface inside a class. Example: 
+```ts
+interface IsPerson {
+    name: string;
+    age: number;
+    introduce(someVar: string): void;
+}
+
+const someguy: IsPerson = {
+    name: 'John',
+    age: 30,
+    introduce(someText: string): void { 
+        console.log(someText); // method body can be different for objects
+    }
+};
+```
+
+## Generics
+Generics allows us to create reusable blocks of code which can be used with different types. If we pass a normal object to a function (without declaring its properties types), add some properties to it and return it, TypeScript cannot infer what properties are present in that object. By making an object type to be generic, TypeScript automatically infers the types of properties added/removed to that object. Adding `extends Object` restricts the type captured to be an object, not anything else. Interfaces can also be made generic. Example:
+```ts
+const doSomething = <T extends object>(someObj: T) => { // It can be any letter, but people prefer T
+    let uid = Math.floor(Math.random() * 100);
+    return { ...obj, uid };
+} 
+let someVar = doSomething({ name: 'John', age: 40 }); // this can be any object with anything passed to function
+console.log(someVar.name); // TypeScript automatically infers the properties present in someVar
+
+interface Resource<T> { // T can extend anything, like object,string or array
+    resourceName: string;
+    data: T;
+}
+// variables implementing this interface can use anything for T, like: Resource<string>, Resource<object> etc.
+```
+
+## Enums and Tuples
+Enums are a special type in TypeScript which allows to store a set of constants or keywords and associate them with a numeric value. Enum is a way to specify descriptive constants and associate each one with a numeric value. Example:
+```ts
+enum MovieType { ACTION, ADVENTURE, ROMANCE, COMEDY, DRAMA };
+let someVar: MovieType = MovieType.DRAMA; // outputs 4 in console.log
+```
+
+Tuples are similar to arrays, having same array methods, but the major difference is that the types of data in each position in a tuple is fixed once it has been initialized. Example:
+```ts
+let someTup: [string, number, boolean] = ['John', 26, true]; // now changing types at different positions is not allowed 
+```
+
+## Credits & Attributions
+
+- [Official TypeScript Documentation](https://www.typescriptlang.org/docs)
+- [TypeScript Tutorial](https://www.youtube.com/playlist?list=PL4cUxeGkcC9gUgr39Q_yD6v-bSyMwKPUI) by The Net Ninja
