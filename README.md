@@ -1,16 +1,15 @@
-# personal-favorites
-This is Collection of stuff I made while browsing the internet
+# Ruminations
+This is my personal blog. It also has a collection of stuff I made while browsing the internet
 
 ## Contents
 
-* [Feynman.md](https://github.com/vijethph/personal-favorites) - The Feynman Technique for memorizing things
-* [Procrastination.md](https://github.com/vijethph/personal-favorites) - Avoiding Procrastination
-* [SelfHelp.md](https://github.com/vijethph/personal-favorites) - A good collection of self-help tips
-* [SmallTalk.md](https://github.com/vijethph/personal-favorites) - How to make conversations
-* [ThingsNoDistract.md](https://github.com/vijethph/personal-favorites) - Things to do instead of getting distracted
-* [Bookmarks.md](https://github.com/vijethph/personal-favorites) - My browser bookmarks (for my reference), has important websites that anyone can make use of.
-
-### Interested people can go through these things by just clicking on the links given above.
+* [Feynman.md](https://github.com/vijethph/ruminations) - The Feynman Technique for memorizing things
+* [Procrastination.md](https://github.com/vijethph/ruminations) - Avoiding Procrastination
+* [SelfHelp.md](https://github.com/vijethph/ruminations) - A good collection of self-help tips
+* [SmallTalk.md](https://github.com/vijethph/ruminations) - How to make conversations
+* [ThingsNoDistract.md](https://github.com/vijethph/ruminations) - Things to do instead of getting distracted
+* [Bookmarks.md](https://github.com/vijethph/ruminations) - My browser bookmarks (for my reference), has important websites that anyone can make use of.   
+And many more...   
 
 #### I'll be glad if anyone finds it helpful.
 

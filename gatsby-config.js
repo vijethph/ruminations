@@ -5,18 +5,18 @@ require(`dotenv`).config({
 const shouldAnalyseBundle = process.env.ANALYSE_BUNDLE;
 
 module.exports = {
-  pathPrefix: "/personal-favourites",
+  pathPrefix: "/ruminations",
   siteMetadata: {
     // Used for the title template on pages other than the index site
     siteTitle: `Vijeth P H`,
     // Default title of the page
-    siteTitleAlt: `Vijeth P H - Personal Collection of Stuff`,
+    siteTitleAlt: `Vijeth P H - Personal Blog`,
     // Can be used for e.g. JSONLD
-    siteHeadline: `Vijeth P H - Personal Collection of Stuff`,
+    siteHeadline: `Vijeth P H - Personal Blog`,
     // Will be used to generate absolute URLs for og:image etc.
-    siteUrl: `https://vijethph.github.io/personal-favourites`,
+    siteUrl: `https://vijethph.github.io/ruminations`,
     // Used for SEO
-    siteDescription: `Typography driven, feature-rich blogging theme with minimal aesthetics. Includes tags/categories support and extensive features for code blocks such as live preview, line numbers, and line highlighting.`,
+    siteDescription: `Personal Blog of Vijeth P H`,
     // Will be set on the <html /> tag
     siteLanguage: `en`,
   },
@@ -51,9 +51,9 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `Vijeth P H - Personal Collection of Stuff`,
+        name: `Vijeth P H - Personal Blog`,
         short_name: `vijeths stuff`,
-        description: `Typography driven, feature-rich blogging theme with minimal aesthetics. Includes tags/categories support and extensive features for code blocks such as live preview, line numbers, and code highlighting.`,
+        description: `Personal Blog of Vijeth P H`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#6B46C1`,
