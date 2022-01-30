@@ -1,0 +1,140 @@
+---
+title: Next.js Basics
+date: 2022-01-30
+description: Brief introduction to Next.js concepts
+slug: "/nextjs"
+tags:
+  - Next.js
+  - Web Development
+  - Introduction
+---
+
+## Introduction
+- Next.js is a framework for creating pre-rendered React websites
+- It offers both Server Side Rendering and Static Site Generation
+- **Server Side Rendering**: React components are rendered into HTML pages on the server after a page request comes from the browser. It is the pre-rendering method that generates the HTML on each request. 
+- **Static Site Generation**: Components are rendered into HTML pages at build time so that we can deploy web pages and javascript bundles to the web. Static Generation is the pre-rendering method that generates the HTML at build time. The pre-rendered HTML is then reused on each request.
+- Benefits of SSR and SSG: pre-rendering improves performance, leads to better Search Engine Optimization (SEO)
+
+## Getting Started
+```bash
+npx create-next-app my-app-name
+```
+`create-next-app` is similar to `create-react-app`, which provides boilerplate code to quickly get a Next.js app up and running. Folder structure contains **pages** folder, where all the page components will be created. `index.js` is for the home page, and `_app.js` is the root component where all the components will get rendered. **api** folder is for api endpoints, **public** folder is for storing public assets, **styles** folder for css files, including css modules.      
+Every page in Next.js has its own component. The file name and location of each page component is tied to the route for that particular page. Example: creating a folder and file named `things/about.js` automatically creates a route `things/about` which is tied to this component. An exception is for `index.js`. If there is a `index.js` file within a subfolder, it creates a root path for that file under the subfolder route. In order to create dynamic routes, create a file with name wrapped under square brackets [], which tells Next.js that the component is modifiable by dynamic parameters.    
+We can also create drop-in components like Navbar, Footer etc which are not page components, but can be added to multiple pages. These need to be created in a separate folder in root directory. In order to link different components in Next.js, **Link** component is used instead of anchor tag with href attribute. Link component gives the ability to do client-side navigation in the browser i.e., different page requests are loaded via javascript, not by requesting server. Example:
+```jsx
+import Link from 'next/link';
+....
+<Link href="/"><a>Home</a></Link>
+<Link href="/about"><a>About</a></Link>
+```
+Next.js automatically does code splitting for the application i.e., only the javascript that is needed for the current page is served from the server. Next.js provides its own 404 page, which can be customized by creating `404.js` file. Next.js allows adding CSS in many different ways:
+- Using global stylesheets for global common styles (`globals.css` file)
+- Using `styles.jsx` for writing styles for a react component
+- Using CSS modules, where each component can have its own unique scoped stylesheet. Next.js automatically scopes the styles for the particular components by adding random characters next to the class names and selectors.   
+
+## More features
+In order to redirect users to a different page, `useRouter` hook can be used. When initialized, it returns a router object which contains a method that can be used to redirect the user. Example:
+```jsx
+import { useRouter } from 'next/router';
+....
+const router = useRouter();
+// router.go(-1); // allows us to go back and forth through the history of routes accessed
+router.push('/about'); // redirects to a specific route
+```
+Images can be accessed in the public folder by using the reference `/`. Next.js also has **Image** component which can be used instead of img tag. The difference is, the component forces us to add width and height attributes to the image, along with src, and automatically makes it responsive based on these properties, and allows lazy loading. Example:
+```jsx
+import Image from 'next/Image';
+....
+<Image src="./logo.png" width={128} height={77} />
+```
+
+## Static Site Generation with data
+Some pages require fetching external data for pre-rendering. There are two scenarios, and one or both might apply. In each case, we can use these functions that Next.js provides:
+- Our page **content** depends on external data: Use `getStaticProps`
+- Our page **paths** depend on external data: Use `getStaticPaths` (usually in addition to `getStaticProps`)       
+
+Next.js provides **Head** component to edit the title, metadata and other properties of the page which normally come under `<head>` section of HTML document. `getStaticProps` is a special function which allows us to make async requests to APIs before pages are rendered, as an alternative to useEffect hook. This function runs at build time, not in browser. Example:
+```jsx
+export const getStaticProps = async () => {
+    const response = await fetch("https://jsonplaceholder.typicode.com/users");
+    const data = await response.json();
+    
+    return {
+        props: { humans: data } // this is available to the component as props, which can be destructured
+    }
+}
+
+const Users = ({ humans }) => { .... }
+```
+
+`getStaticPaths` is a function which runs at build time, and is used to return all possible values for the route parameter component. This needs to return an object with paths property, which should have an array of objects (where each object represents a route) that is used by Next.js to generate HTML pages for each possible route. Example:
+```jsx
+export const getStaticPaths = async () => {
+    const response = await fetch("https://jsonplaceholder.typicode.com/users");
+    const data = await response.json();
+    
+    // each object within the array of paths should have a params property which specified any parameters of a particular route
+    const paths = data.map(human => {
+        return {
+            params: { id: human.id.toString() }
+        }
+    });
+    
+    return {
+        paths,
+        fallback: false // if there is no data available, show 404 page 
+    }
+}
+
+// Next.js runs this function for every object in paths array
+export const getStaticProps = async (context) => {
+    const id = context.params.id; // We can get access to the path parameter with context object
+    ....
+}
+```
+
+## Server-side Rendering
+If a page uses Server-side Rendering, the page HTML is generated on each request. To use Server-side Rendering for a page, we need to export an async function called `getServerSideProps`. This function will be called by the server on every request. `getServerSideProps` is similar to `getStaticProps`, but the difference is that `getServerSideProps` is run on every request instead of on build time. For example, suppose that our page needs to pre-render frequently updated data (fetched from an external API). We can write `getServerSideProps` which fetches this data and passes it to Page like below:
+```jsx
+function Page({ data }) {
+  // Render data...
+}
+
+// This gets called on every request
+export async function getServerSideProps() {
+  // Fetch data from external API
+  const res = await fetch(`https://.../data`);
+  const data = await res.json();
+
+  // Pass data to the page via props
+  return { props: { data } }
+}
+```
+This function runs when we request a page directly (page will be pre-rendered with the returned props), or when we request a page on client-side page transitions though Link or Router (Next.js sends an API request to the server).
+
+## Script Component and API Routes
+The Next.js Script component, `next/script`, is an extension of the HTML `<script>` element. It enables developers to set the loading priority of third-party scripts anywhere in their application without needing to append directly to `next/head`, saving developer time while improving loading performance.     
+API routes provide a solution to build our API with Next.js. Any file inside the folder `pages/api` is mapped to `/api/*` and will be treated as an API endpoint instead of a page. They are server-side only bundles and won't increase our client-side bundle size. For example, the following API route `pages/api/user.js` returns a json response with a status code of 200:
+```jsx
+export default function handler(req, res) {
+  if (req.method === 'GET') {
+    // Process a GET request
+    res.status(200).json({ name: 'John Doe' });
+  } else {
+    // Handle any other HTTP method
+    const { userid } = req.query; // for dynamic route pages/api/post/[userid].js
+    res.status(200).json({ name: 'Jane Doe', id: userid });
+  }
+}
+```
+For an API route to work, we need to export a function as default (a.k.a request handler), which then receives the following parameters:
+- **req**: An instance of [http.IncomingMessage](https://nodejs.org/api/http.html#http_class_http_incomingmessage), with some pre-built middlewares
+- **res**: An instance of [http.ServerResponse](https://nodejs.org/api/http.html#http_class_http_incomingmessage), with some helper functions    
+API Routes do not specify CORS headers, meaning they are same-origin only by default. We can customize such behavior by wrapping the request handler with the CORS middleware. API routes support dynamic routes, and follow the same file naming rules used for pages.   
+
+## Credits & Attributions
+
+- [Official Next.js Documentation](https://nextjs.org/docs/getting-started)
+- [TypeScript Tutorial](https://www.youtube.com/playlist?list=PL4cUxeGkcC9g9gP2onazU5-2M-AzA8eBw) by The Net Ninja
