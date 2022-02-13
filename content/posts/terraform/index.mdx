@@ -1,0 +1,316 @@
+---
+title: Terraform Essentials
+date: 2022-02-13
+description: Brief introduction to Terraform concepts
+slug: "/terraform"
+tags:
+  - Terraform
+  - Infrastructure-as-Code
+  - Introduction
+---
+
+
+## Introduction
+
+Terraform is an infrastructure as code (IaC) tool that allows us to build, change, and version infrastructure safely and efficiently. This includes both low-level components like compute instances, storage, and networking, as well as high-level components like DNS entries and SaaS features. It is an infrastructure as code tool that lets us define both cloud and on-prem resources in human-readable configuration files that we can version, reuse, and share. We can then use a consistent workflow to provision and manage all of your infrastructure throughout its lifecycle.    
+
+Terraform for windows downloads an executable file, which should be put on PATH environment variable (so that it can be invoked by CLI). Terraform is written in a language called HCL (hashicorp configuration language), and stored in a file with `.tf` extension. To use Terraform, we need to define a provider. Provider is a plugin allow us to talk to specific set of APIs of an IaaS/Paas/SaaS service. Terraform relies on plugins called "providers" to interact with cloud providers, SaaS providers, and other APIs.    
+
+Terraform configurations must declare which providers they require so that Terraform can install and use them. Additionally, some providers require configuration (like endpoint URLs or cloud regions) before they can be used. Each provider adds a set of resource types and/or data sources that Terraform can manage. Every resource type is implemented by a provider; without providers, Terraform can't manage any kind of infrastructure. Most providers configure a specific infrastructure platform (either cloud or self-hosted). Providers can also offer local utilities for tasks like generating random numbers for unique resource names.    
+
+The core Terraform workflow consists of three stages:
+
+- **Write:** We define resources, which may be across multiple cloud providers and services. For example, we might create a configuration to deploy an application on virtual machines in a Virtual Private Cloud (VPC) network with security groups and a load balancer.
+- **Plan:** Terraform creates an execution plan describing the infrastructure it will create, update, or destroy based on the existing infrastructure and our configuration.
+- **Apply:** On approval, Terraform performs the proposed operations in the correct order, respecting any resource dependencies. For example, if we update the properties of a VPC and change the number of virtual machines in that VPC, Terraform will recreate the VPC before scaling the virtual machines.
+
+### Example: Using the AWS Provider
+
+```
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 3.0"
+    }
+  }
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = "us-east-1"
+}
+```
+
+The AWS provider offers a flexible means of providing credentials for authentication. The following methods are supported, in this order:
+
+- **Static credentials**: Static credentials can be provided by adding an `access_key` and `secret_key` in-line in the AWS provider block:
+```
+provider "aws" {
+  region     = "us-west-2"
+  access_key = "my-access-key"
+  secret_key = "my-secret-key"
+}
+```
+- **Environment variables**: We can provide our credentials via the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, environment variables, representing our AWS Access Key and AWS Secret Key, respectively. The `AWS_DEFAULT_REGION` and `AWS_SESSION_TOKEN` environment variables are also used, if applicable:
+```bash
+$ export AWS_ACCESS_KEY_ID="anaccesskey"
+$ export AWS_SECRET_ACCESS_KEY="asecretkey"
+$ export AWS_DEFAULT_REGION="us-west-2"
+$ terraform plan
+```
+- **Shared credentials/configuration file**: We can use an AWS credentials or configuration file to specify our credentials. The default location is `$HOME/.aws/credentials` on Linux and macOS, or `%USERPROFILE%\.aws\credentials` on Windows.
+- **CodeBuild, ECS, and EKS Roles**: Using an IAM Task Role.
+- **EC2 Instance Metadata Service (IMDS and IMDSv2)**: If we're running Terraform from an EC2 instance with IAM Instance Profile using IAM Role, Terraform will just ask the metadata API endpoint for credentials.
+
+## Creating, Modifying and Deleting Resources
+
+Terraform provides the same syntax for creating resources, regardless of cloud service we're using, like AWS, GCP or Azure. Creating resources has the following syntax:
+
+<table>
+<tr>
+<th>
+Syntax
+</th>
+<th>
+Example
+</th>
+</tr>
+<tr>
+<td>
+
+```
+resource "<provider>_<resource_type>" "resource_name" {
+    config options in the form of key value pairs....
+    key1 = "value1"
+    key2 = "value2"
+}
+```
+
+</td>
+<td>
+
+```
+resource "aws_instance" "my-ec2-server" {
+    ami           = "ami-085925f297f89fce1"
+    instance_type = "t2.micro"
+
+    tags = {
+        Environment = "sometesting"
+    }
+
+}
+```
+
+</td>
+</tr>
+</table>
+
+Here `resource_name` is not a name used in AWS, it is only for referencing within Terraform. First command to run is `terraform init` which looks at all the `.tf` config files defined, and the providers declared in them, and download the plugins to interact with necessary APIs for the providers specified. The next command is `terraform plan` which does a dry run of code to display all the changes that will take place in the cloud service. Then `terraform apply` makes the changes specified in the cloud provider. Since Terraform is written in a declarative manner, running `terraform apply` again would not create another resource in cloud. It will just refresh the state i.e., check if the resource is still alive and running in the cloud. Comments are written with hash (#) in Terraform.    
+    
+`terraform plan` displays 3 kinds of changes made to cloud resources: creation marked with +, updation/modification marked with ~, and deletion marked with -. `terraform destroy` deletes resources. By default, for deletion, Terraform destroys all resources declared within it, unless marked with some parameters for deleting a specific resource. Another way to delete a specific resource is to comment out its declaration and run `terraform apply`.
+
+### Referencing Resources
+
+We can reference other resources that are defined within code by using the name defined for those resources. The order in which referenced resources are declared does not matter; Terraform automatically infers which needs to be created first. `--auto-approve` is used to skip prompt for running terraform commands. Example:
+
+```
+resource "aws_vpc" "my-vpc" {
+    cidr_block = "10.0.0.0/16"
+    tags = {
+        Name = "myProdVPC" # Special tag that is used to name VPC within AWS
+    }
+}
+
+resource "aws_subnet" "my-subnet" {
+    vpc_id = "${aws_vpc.my-vpc.id}" # every resource has an ID that can be accessed
+    cidr_block = "10.0.1.0/24"
+
+    tags = {
+        Name = "MyMainSubnet"
+    }
+}
+```
+
+### Terraform folder structure
+
+`.terraform` folder gets created when any plugins are initialized (`terraform init`), and necessary plugins are installed. `terraform.tfstate` represents all the state for terraform. It keeps track of all the resources created and deleted using Terraform. Variables can be defined in `terraform.tfvars` file.   
+
+## Example project
+
+1. Create VPC, Internet Gateway, Custom Route Table and a Subnet
+2. Associate Subnet with Route Table
+3. Create Security Group to allow ports 22, 80, 443, and a network interface with an IP in the subnet that was created in 2nd step.
+4. Assign an elastic IP to the network interface
+5. Create Ubuntu server and install/enable Apache2
+
+For this, AWS requires us to use key pairs to connect to EC2 instances. Elastic IP relies on the deployment of Internet Gateway, which Terraform cannot figure out to create it first. So, `depends_on` flag is used to explicitly set the order of creation of resources.
+
+```
+# 1. Create vpc
+resource "aws_vpc" "my-prod-vpc" {
+  cidr_block = "10.0.0.0/16"
+  tags = {
+    Name = "production"
+  }
+}
+
+# 2. Create Internet Gateway
+resource "aws_internet_gateway" "my-gateway" {
+  vpc_id = aws_vpc.my-prod-vpc.id
+}
+
+# 3. Create Custom Route Table
+resource "aws_route_table" "my-prod-route-table" {
+  vpc_id = aws_vpc.my-prod-vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0" # default route. all traffic gets sent to the internet gateway
+    gateway_id = aws_internet_gateway.my-gateway.id
+  }
+
+  route {
+    ipv6_cidr_block = "::/0" # it is same as 0.0.0.0/0
+    gateway_id      = aws_internet_gateway.my-gateway.id
+  }
+
+  tags = {
+    Name = "Prod"
+  }
+}
+
+# 4. Create a Subnet
+
+resource "aws_subnet" "my-subnet-1" {
+  vpc_id            = aws_vpc.my-prod-vpc.id
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = "us-east-1a"
+  tags = {
+    Name = "prod-subnet"
+  }
+}
+
+# 5. Associate subnet with Route Table
+resource "aws_route_table_association" "a" {
+  subnet_id      = aws_subnet.my-subnet-1.id
+  route_table_id = aws_route_table.my-prod-route-table.id
+}
+
+# 6. Create Security Group to allow port 22,80,443
+resource "aws_security_group" "allow_web" {
+  name        = "allow_web_traffic"
+  description = "Allow Web inbound traffic"
+  vpc_id      = aws_vpc.my-prod-vpc.id
+
+  ingress {
+    description = "HTTPS"
+    from_port   = 443 # allows to specify range of ports
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # best practice is to put our own IP address for this cidr block
+  }
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0 # 0 means allow all ports for egress
+    to_port     = 0
+    protocol    = "-1" # this means any protocol is allowed
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "allow_web"
+  }
+}
+
+# 7. Create a network interface with an ip in the subnet that was created in step 4
+resource "aws_network_interface" "my-web-server-nic" {
+  subnet_id       = aws_subnet.my-subnet-1.id
+  private_ips     = ["10.0.1.50"]
+  security_groups = [aws_security_group.allow_web.id]
+}
+
+# 8. Assign an elastic IP to the network interface created in step 7
+resource "aws_eip" "one" {
+  vpc                       = true
+  network_interface         = aws_network_interface.my-web-server-nic.id
+  associate_with_private_ip = "10.0.1.50"
+  depends_on                = [aws_internet_gateway.my-gateway] # explicitly set the order of creation of resources
+}
+
+output "server_public_ip" {
+  value = aws_eip.one.public_ip # this will be shown in the form of: server_public_ip = 54.158.243.220
+}
+
+# 9. Create Ubuntu server and install/enable apache2
+resource "aws_instance" "my-web-server-instance" {
+  ami               = "ami-085925f297f89fce1"
+  instance_type     = "t2.micro"
+  availability_zone = "us-east-1a" # AWS picks a random AZ if we don't specify one
+  key_name          = "main-key" # key pair to access ec2
+  network_interface {
+    device_index         = 0 # we can attach multiple interfaces, this is the first one
+    network_interface_id = aws_network_interface.my-web-server-nic.id
+  }
+
+  user_data = <<-EOF
+                #!/bin/bash
+                sudo apt update -y
+                sudo apt install apache2 -y
+                sudo systemctl start apache2
+                sudo bash -c 'echo your very first web server > /var/www/html/index.html'
+                EOF
+  tags = {
+    Name = "web-server"
+  }
+}
+
+output "server_private_ip" {
+  value = aws_instance.web-server-instance.private_ip
+}
+
+output "server_id" {
+  value = aws_instance.web-server-instance.id
+}
+
+```
+
+## Terraform State Commands
+
+`terraform state list` command lists out all the resources that has terraform state (created with terraform). To see one of the resources in detail, use `terraform state show <resource-name>` command, where resource-name is the name of the resource (example: aws_subnet.my-subnet-1). `terraform output` command is used to show the details for any of the resources created by terraform just after creation. The value chosen for output will be displayed using the name declared for the value. If we don't wish to change state of the resources (especially in production), but just want to see the outputs, we can run `terraform refresh` command to check the outputs.    
+
+In certain cases where we want to delete an individual resource or try to roll out staged deployments where only certain resources are to be deployed, we can target individual resources by passing `--target` flag with terraform apply or destroy command, and provide the name of the resource.
+
+## Terraform Variables
+
+Terraform allows the use of variables so that we can reuse values throughout the code without the need for repeating. To define a variable, use the following syntax:
+
+```
+variable "my_variable" {
+    description = "some description of the variable"
+    default = "hello_there" # default value if no value is passed for the variable
+    type = string # use "any" if variable can be of any type
+}
+# use this variable anywhere using: var.my_variable
+```
+
+It takes in three parameters, all of which are optional. If there is no value assigned for the variable, terraform will prompt the user to provide it. We can also pass values for the variable through command line in this way: `terraform apply --var "my_variable=hello"`. Best practice is to create a separate file for variables called `terraform.tfvars` which is automatically scanned by terraform, and define variables like this: `my_variable = "hello"` in each line. If the variables are defined in a different file, we can tell terraform to look for it using `--var-file` parameter. Variable types can vary from string, number, array, object, tuples and so on.
+
+## Credits & Attributions
+
+- [Official Terraform Documentation](https://www.terraform.io/docs)
+- [Terraform Tutorial](https://www.youtube.com/watch?v=SLB_c_ayRMo)
