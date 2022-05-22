@@ -9,20 +9,71 @@ tags:
   - Introduction
 ---
 
+### Problem with manual configuration
+
+Manually configuring cloud infrastructure allows us to easily start using new service offerings to quickly prototype architectures, however it comes with many downsides:
+- Its easy to mis-configure a service through human error
+- Its hard to manage the expected state of configuration for compliance
+- Its hard to transfer configuration knowledge to other team members      
+
+**Infrastructure as Code (IaC)** - this involves writing a configuration script to automate creating, updating or destroying cloud infrastructure. IaC is a blueprint of our infrastructure. It allows us to easily share, version or inventory our cloud infrastructure.
+
+### Popular Infrastructure as Code tools
+
+1. Declarative type
+    - What you see is what you get (Explicit). More verbose, but zero chance of mis-configuration
+    - More verbose, but zero chance of mis-configuration
+    - Uses scripting languages. Ex: JSON, YAML, XML
+    - Examples: ARM Templates and Azure Blueprints for Azure, CloudFormation for AWS, Cloud Deployment Manager for Google Cloud, Terraform
+2. Imperative
+    - You say what you want, and the rest is filled in (Implicit)
+    - Less verbose, you could end up with misconfiguration
+    - Does more than Declarative
+    - Uses programming languages ex: Python, Ruby, JavaScript
+    - Examples: AWS Cloud Development Kit (CDK), Pulumi
+    
+### Infrastructure Lifecycle
+
+It is a number of clearly defined and distinct work phases which are used by DevOps Engineers to plan, design, build, test, deliver, maintain and retire cloud infrastructure. Day 0-2 is a simplified way to describe phases of an infrastructure lifecycle. Day 0 - Plan and Design. Day 1 - Develop and Iterate. Day 2 - Go live and maintain. Days do not literally mean a 24 hour days and is just a broad way of defining where a Infrastructure project would be.
+- Reliability - IaC makes changes idempotent, consistent, repeatable and predictable. Idempotent means no matter how many times you run IaC, you will always end up with the same state that is expected
+- Manageability - enables mutation via code; revised, with minimal changes
+- Sensibility - avoid financial and reputational losses to even loss of life when considering government and military dependencies on infrastructure
+
+### Common Terms
+- **Provisioning** - to prepare a server with systems, data and software, and make it ready for network operation. Using Configuration Management tools like Puppet, Ansible, Chef, Bash scripts, PowerShell or Cloud-Init you can provision a server. When you launch a cloud service and configure it you are "provisioning".
+- **Deployment** - it is the act of delivering a version of your application to run a provisioned server. Deployment could be performed via AWS CodePipeline, Harness, Jenkins, Github Actions, CircleCI
+- **Orchestration** - it is the act of co-ordinating multiple systems or services. It is a common term when working with microservices, containers and kubernetes. Orchestration could be Kubernetes, Salt, Fabric
+- **Configuration Drift** - it is when provisioned infrastructure has **an unexpected configuration change** due to:
+    - team members manually adjusting configuration options
+    - malicious actors
+    - side effects from APIs, SDK or CLIs
+Configuration Drift going unnoticed could be loss or breach of cloud services and residing data or result in interruption of services or unexpected downtime. To detect configuration drift, use a compliance tool that can detect misconfiguration, example: AWS Config, Azure Policies, GCP Security Health Analytics, built-in support for drift detection like AWS CloudFormation Drift Detection, or storing the expected state using Terraform state files. To correct configuration drift, use a compliance tool that can remediate (correct) misconfiguration, like AWS Config, or use Terraform refresh and plan commands, manually correcting the configuration (not recommended), or tearing down and setting up the infrastructure again. To prevent configuration drift, keep immutable infrastructure i.e., always create and destroy but never reuse; use Blue/Green deployment strategy. Servers should never be modified after they are deployed, done by baking AMI Images or containers via AWS Image Builder or HashiCorp Packer, or a build server like GCP Cloud Run. Use GitOps to version control IaC, and peer review every single change via Pull Requests to infrastructure.    
+- **GitOps** - is when you take Infrastructure as Code (IaC) and you use a git repository to introduce a formal process to review and accept changes to infrastructure code; once that code is accepted, it automatically triggers a deploy
+- **Change Management** - it is a standard approach to apply change, and resolving conflicts brought about by change. In the context of IaC, it is the procedure that will be followed when resources are modified and applied via configuration script
+- **Change Automation** - it is a way of automatically creating a consistent, systematic and predictable way of managing change request via controls and policies. Terraform uses Change Automation in the form of Execution Plans and Resource Graphs to apply and review complex changesets. Change automation allows you to know exactly what Terraform will change and in what order, avoiding many possible human errors.
+- **ChangeSet** - it is a collection of commits that represent changes mande to a versioning repository. IaC uses ChangeSets so you can see what has changed by who over time
 
 ## Introduction
 
-Terraform is an infrastructure as code (IaC) tool that allows us to build, change, and version infrastructure safely and efficiently. This includes both low-level components like compute instances, storage, and networking, as well as high-level components like DNS entries and SaaS features. It is an infrastructure as code tool that lets us define both cloud and on-prem resources in human-readable configuration files that we can version, reuse, and share. We can then use a consistent workflow to provision and manage all of your infrastructure throughout its lifecycle.    
+Terraform is an infrastructure as code (IaC) tool that allows us to build, change, and version infrastructure safely and efficiently. This includes both low-level components like compute instances, storage, and networking, as well as high-level components like DNS entries and SaaS features. It is an infrastructure as code tool that lets us define both cloud and on-prem resources in human-readable configuration files that we can version, reuse, and share. We can then use a consistent workflow to provision and manage all of your infrastructure throughout its lifecycle. Terraform is declarative but the Terraform Language features imperative-like functionality. Notable features of TerraForm include installable modules, planning and predicting changes, dependency graphing, state management, provisioning infrastructure in familiar languages such as AWS CDK, registry with 1000+ providers.           
 
 Terraform for windows downloads an executable file, which should be put on PATH environment variable (so that it can be invoked by CLI). Terraform is written in a language called HCL (hashicorp configuration language), and stored in a file with `.tf` extension. To use Terraform, we need to define a provider. Provider is a plugin allow us to talk to specific set of APIs of an IaaS/Paas/SaaS service. Terraform relies on plugins called "providers" to interact with cloud providers, SaaS providers, and other APIs.    
 
-Terraform configurations must declare which providers they require so that Terraform can install and use them. Additionally, some providers require configuration (like endpoint URLs or cloud regions) before they can be used. Each provider adds a set of resource types and/or data sources that Terraform can manage. Every resource type is implemented by a provider; without providers, Terraform can't manage any kind of infrastructure. Most providers configure a specific infrastructure platform (either cloud or self-hosted). Providers can also offer local utilities for tasks like generating random numbers for unique resource names.    
+Terraform configurations must declare which providers they require so that Terraform can install and use them. Additionally, some providers require configuration (like endpoint URLs or cloud regions) before they can be used. Each provider adds a set of resource types and/or data sources that Terraform can manage. Every resource type is implemented by a provider; without providers, Terraform can't manage any kind of infrastructure. Most providers configure a specific infrastructure platform (either cloud or self-hosted). Providers can also offer local utilities for tasks like generating random numbers for unique resource names. Terraform is logically split into 2 main parts: **terraform core**, which uses remote procedure calls (RPC) to communicate with Terraform Plugins, and **terraform plugins**, which expose an implementation for a specific service, or provisioner. Terraform core is a statically-compiled binary writter in Go programming language.       
 
 The core Terraform workflow consists of three stages:
 
-- **Write:** We define resources, which may be across multiple cloud providers and services. For example, we might create a configuration to deploy an application on virtual machines in a Virtual Private Cloud (VPC) network with security groups and a load balancer.
+- **Write:** We define resources, which may be across multiple cloud providers and services. For example, we might create a configuration to deploy an application on virtual machines in a Virtual Private Cloud (VPC) network with security groups and a load balancer. Terraform reads all files having `.tf` extension, but standard practice is to keep it to `main.tf` if only one file is being used.    
 - **Plan:** Terraform creates an execution plan describing the infrastructure it will create, update, or destroy based on the existing infrastructure and our configuration.
 - **Apply:** On approval, Terraform performs the proposed operations in the correct order, respecting any resource dependencies. For example, if we update the properties of a VPC and change the number of virtual machines in that VPC, Terraform will recreate the VPC before scaling the virtual machines.
+
+### Terraform Use Cases
+
+- IaC for Exotic Providers - Terraform supports a variety of providers outside of GCP, AWS, Azure and sometimes is the only provider. Terraform is open-source and extendable so that any API could be used to created IaC tooling for any kind of cloud platform or technology. Ex: Heroku, Spotify playlists
+- Multi-Tier Applications - Terraform by default makes it easy to divide large and complex applications into isolated configuration scripts (modules). It has a complexity advantage over cloud-native IaC tools for its flexibility while retaining simplicity over imperative tools
+- Disposable Environments - Easily stand up an environment for a software demo or a temporary development environment
+- Resource Schedulers - Terraform is not just defined to infrastructure of cloud resources but can be used to dynamically schedule Docker containers, Hadoop, Spark and other software tools. We can provision our own scheduling grid.
+- Multi-cloud Deployment - Terraform is cloud-agnostic and allows a single configuration to be used to manage multiple providers, and to even handle cross-cloud dependencies
 
 ### Example: Using the AWS Provider
 
@@ -67,19 +118,7 @@ $ terraform plan
 
 Terraform provides the same syntax for creating resources, regardless of cloud service we're using, like AWS, GCP or Azure. Creating resources has the following syntax:
 
-<table>
-<tr>
-<th>
-Syntax
-</th>
-<th>
-Example
-</th>
-</tr>
-<tr>
-<td>
-
-```
+```title=Syntax
 resource "<provider>_<resource_type>" "resource_name" {
     config options in the form of key value pairs....
     key1 = "value1"
@@ -87,10 +126,7 @@ resource "<provider>_<resource_type>" "resource_name" {
 }
 ```
 
-</td>
-<td>
-
-```
+```title=Example
 resource "aws_instance" "my-ec2-server" {
     ami           = "ami-085925f297f89fce1"
     instance_type = "t2.micro"
@@ -102,11 +138,7 @@ resource "aws_instance" "my-ec2-server" {
 }
 ```
 
-</td>
-</tr>
-</table>
-
-Here `resource_name` is not a name used in AWS, it is only for referencing within Terraform. First command to run is `terraform init` which looks at all the `.tf` config files defined, and the providers declared in them, and download the plugins to interact with necessary APIs for the providers specified. The next command is `terraform plan` which does a dry run of code to display all the changes that will take place in the cloud service. Then `terraform apply` makes the changes specified in the cloud provider. Since Terraform is written in a declarative manner, running `terraform apply` again would not create another resource in cloud. It will just refresh the state i.e., check if the resource is still alive and running in the cloud. Comments are written with hash (#) in Terraform.    
+Here `resource_name` is not a name used in AWS, it is only for referencing within Terraform. First command to run is `terraform init` which looks at all the `.tf` config files defined, and the providers declared in them, and download the plugins to interact with necessary APIs for the providers specified. The next command is `terraform plan` which does a dry run of code to display all the changes that will take place in the cloud service. `terraform validate` ensures that all the declared types and values are valid, and required attributes are present. Then `terraform apply` makes the changes specified in the cloud provider. Since Terraform is written in a declarative manner, running `terraform apply` again would not create another resource in cloud. It will just refresh the state i.e., check if the resource is still alive and running in the cloud. Comments are written with hash (#) in Terraform. An Execution Plan is a manual review of what will add, change or destroy before you apply changes by using `terraform apply`. We can visualize an execution plan as a graph using the `terraform graph` command, which will output a GraphViz file. Terraform builds a dependency graph from the Terraform configurations, and walks this graph to generate plans, refresh state, and more. `terraform fmt` formats the terraform config file to rewrite Terraform configuration files to a canonical format and style.         
     
 `terraform plan` displays 3 kinds of changes made to cloud resources: creation marked with +, updation/modification marked with ~, and deletion marked with -. `terraform destroy` deletes resources. By default, for deletion, Terraform destroys all resources declared within it, unless marked with some parameters for deleting a specific resource. Another way to delete a specific resource is to comment out its declaration and run `terraform apply`.
 

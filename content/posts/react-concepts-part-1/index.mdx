@@ -80,6 +80,11 @@ There are 2 ways to use context variables within class components: using `<Conte
 
 Error boundaries can be used to transport errors from one component to another and display them. Error boundaries are regular class-based components, with one difference: they implement `componentDidCatch()` method. There is no such equivalent for functional components. Note that error boundaries only catch errors in the components below them in the tree. An error boundary can’t catch an error within itself. If an error boundary fails trying to render the error message, the error will propagate to the closest error boundary above it.
 
+### Custom Hooks
+A custom Hook is a JavaScript function whose name starts with "use" and that may call other Hooks. Custom hooks outsource **stateful** logic into **re-usable functions**. Unlike regular functions, custom hooks can use other React hooks and React state managed with useState/useReducer. With custom hooks, we can outsource logic which is used in different components into a custom hook which can be called from these components. Custom Hooks are a mechanism to reuse stateful logic (such as setting up a subscription and remembering the current value), but every time we use a custom Hook, all state and effects inside of it are fully isolated.    
+
+When the custom hook gets called in a component which registers a state or an effect (i.e., if the custom hook uses state/effect), then this state/effect will be tied to the component where the custom hook is used. Custom hooks can accept parameters and return objects.      
+
 ## Credits and Attributions
 
 - [Official React Documentation](https://reactjs.org)
