@@ -67,16 +67,18 @@ store.dispatch({ type: "increment" }); // this dispatches an action, where type 
 For class-based components, `connect()` can be used as wrapper around them to connect them to the store. It provides its connected component with the pieces of the data it needs from the store, and the functions it can use to dispatch actions to the store. It does not modify the component class passed to it; instead, it returns a new, connected component class that wraps the component you passed in.   
 
 `connect()` returns a new function as a value, which is executed again by passing the class component inside that new function. `connect()` requires 2 arguments which are functions:
-1. mapStateToProps() - maps Redux state to props which will be received by the class component.
+1. `mapStateToProps()` - maps Redux state to props which will be received by the class component.
 If a mapStateToProps function is specified, the new wrapper component will subscribe to Redux store updates. This means that any time the store is updated, mapStateToProps will be called. The results of mapStateToProps must be a plain object, which will be merged into the wrapped component’s props. If we don't want to subscribe to store updates, pass null or undefined in place of mapStateToProps
-2. mapDispatchToProps() - stores dispatch functions in props, so that in the class component, certain props can be executed as functions which dispatch actions to the Redux store
+2. `mapDispatchToProps()` - stores dispatch functions in props, so that in the class component, certain props can be executed as functions which dispatch actions to the Redux store
 
 ### Redux Hooks
-`useSelector()` is a react-redux hook which allows us to extract data from the Redux store state, using a selector function. It is also possible to get direct access to the store itself by using `useStore()` which returns a reference to the same Redux store that was passed in to the <Provider> component. This hook should probably not be used frequently. However, this may be useful for less common scenarios that do require access to the store, such as replacing reducers. `useSelector()` is more convenient than useStore as it allows to retrieve a part of the state managed by the store.     
+
+`useSelector()` is a react-redux hook which allows us to extract data from the Redux store state, using a selector function. It is also possible to get direct access to the store itself by using `useStore()` which returns a reference to the same Redux store that was passed in to the `<Provider>` component. This hook should probably not be used frequently. However, this may be useful for less common scenarios that do require access to the store, such as replacing reducers. `useSelector()` is more convenient than useStore as it allows to retrieve a part of the state managed by the store.     
 
 `useDispatch()` returns a reference to the dispatch function from the Redux store, which can be used to dispatch actions as needed. `useSelector()` requires a function which determines which piece of data needs to be extracted from the store - it is called with the entire Redux store state as its only argument. `useSelector()` will also subscribe to the Redux store, and run the selector function whenever an action is dispatched
 
 ### Potential problems with Redux:
+
 - action types - we need to ensure there is no mistype of identifier used to dispatch certain actions, otherwise it won't be handled correctly by reducer
 - store data - it gets bigger with the number of state variables used. This means a lot of state objects need to be copied and returned by the reducer intact for each action type - resulting in a huge reducer function
 - state immutability - we need to ensure new state snapshot is returned for every action type without accidentally modifying the existing state anywhere    
@@ -87,6 +89,7 @@ In order to solve these problems, Redux Toolkit can be used. The Redux Toolkit p
 - "Redux requires too much boilerplate code"
 
 ### Redux Toolkit
+
 Redux Toolkit also includes a powerful data fetching and caching capability called "RTK Query". It is purpose-built to solve the use case of data fetching and caching, supplying a compact, but powerful toolset to define an API interface layer for your app. It is intended to simplify common cases for loading data in a web application, eliminating the need to hand-write data fetching & caching logic ourselves.    
 
 Redux Toolkit internally uses a package called Immer, which automatically detects any changes done to existing state inside reducers, and clone it to create a new state object with only modified properties changed and others as it is, in an immutable way. Redux Toolkit offers a better way to setup Redux store by using configureStore which makes merging multiple reducers easier. It is a friendly abstraction over the standard Redux createStore function that adds good defaults to the store setup for a better development experience.
