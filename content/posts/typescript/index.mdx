@@ -10,6 +10,7 @@ tags:
 ---
 
 ## Basic features
+- TypeScript = JavaScript + A type system (which helps us catch errors during development, uses 'type annotations' to analyze our code, being only active during development, and which doesn't provide any performance optimization)
 - Alternative to JavaScript(superset - extends JavaScript with new features and syntax)
 - Allows us to use strict types (JavaScript uses dynamic types)
 - Supports modern features (arrow functions, let, const - similar to Babel compiler)
@@ -18,21 +19,23 @@ tags:
 
 ## Installing
 ```bash
-npm install -g typescript
+npm install -g typescript ts-node
 tsc inputfile.ts outputfile.js
 ```
 tsc is the TypeScript compiler which converts TypeScript files into JavaScript. `outputfile.js` parameter isn't required if both TypeScript and JavaScript filenames are same. If JavaScript file doesn't exist, it will create a new one.
-tsc can watch over a file and compile it to JavaScript whenever any changes are made and saved. For that, just add `-w` parameter for tsc command. It also tells if any errors are present.
+tsc can watch over a file and compile it to JavaScript whenever any changes are made and saved. For that, just add `-w` parameter for tsc command. It also tells if any errors are present. `ts-node inputfile.ts` runs both `tsc inputfile.ts` and `node inputfile.js` commands at once.
 
 
 ## Basic Types
-In TypeScript, there is no Integer or Float type. They come under a single Number type. It will not allow variables to change types, but values can be changed. It infers the type of the variable declared, based on the value assigned to the variable. It also has access to JavaScript objects like Math and Date. We can define the type of variable passed into functions as an argument. Example:
+A type is an easy way to refer to the different properties along with the functions that a value has. In TypeScript, there is no Integer or Float type. They come under a single Number type. However, there are 2 categories of types: Primitive types (number, boolean, void, undefined, string, symbol, null), and Object types (functions, arrays, classes and objects). It will not allow variables to change types, but values can be changed. Types are used by the TypeScript Compiler to analyze our code for errors. It infers the type of the variable declared, based on the value assigned to the variable. It also has access to JavaScript objects like Math and Date. We can define the type of variable passed into functions as an argument. Example:
 ```js
 const double = (something: number) => {
     return something * 2;
 }
 ```
-Arrays maintain a strict type check. If an array with different types is required, it should be declared first. Variable holding the array cannot be changed for a different type, like string. Object properties maintain a strict type check as well. We cannot add/define new properties for an object once it is defined. Once an object is declared, it cannot be redefined by adding/removing properties or redefining existing property types; it should have the exact same structure as declared.    
+Arrays maintain a strict type check. If an array with different types is required, it should be declared first. Variable holding the array cannot be changed for a different type, like string. Object properties maintain a strict type check as well. We cannot add/define new properties for an object once it is defined. Once an object is declared, it cannot be redefined by adding/removing properties or redefining existing property types; it should have the exact same structure as declared.  
+
+Type annotations are the code we add to tell TypeScript what type of value a variable will refer to (or what type of arguments a function will receive and what type of values it will return). Type inference means TypeScript tries to figure out what type of value a variable refers to. If variable declaration and initialization are on the same line, TypeScript perform type inference for the variable. 'any' type indicates TypeScript has no idea what the variable's value holds, therefore cannot check for correct property references. Variables with 'any' type should be always avoided. Type inference for functions only works for the return values, not the arguments received by the function. 'never' type indicates the function will not reach end of its execution because of an error.  
 
 We can declare explicit types for variables without defining values for them, like: `let name: string;`. This will restrict the variable to have only values of that specific type. Examples:
 ```ts
@@ -55,7 +58,7 @@ let being: {   // specifically declaring object and properties types
 let greet: Function; // declaring function type without defining function body
 ```   
 
-A union type allows one or more type of values for a variable / array. `any` type allows a variable to have any type of value, but it is not recommended for frequent usage as no errors are generated for wrong/missing values.
+A union type allows one or more type of values for a variable / array. If a union type of 2 or more objects is set for a variable, TypeScript limits the number of allowed properties to the common properties and methods that exist between the objects. `any` type allows a variable to have any type of value, but it is not recommended for frequent usage as no errors are generated for wrong/missing values. A type guard is a check on the type of a variable; `instanceof` operator is one such type guard, which restores access to all the different properties associated with a specific type assigned to the variable, usually used for narrowing down complex types, and `typeof` operator is another type guard which can give very basic information about the type of values we have at runtime, usually used for narrowing down primitive types.   
 ```ts
 let something: any = 45;
 let mixedSomething: any[] = [];
@@ -117,7 +120,7 @@ formVar.addEventListener("submit",(e: Event) => {
 ```
 
 ## Classes
-Classes in TypeScript are similar to those in JavaScript. It is also possible to create an array of class objects, similar to string arrays and object arrays. By default, all properties of a class are public. Private properties are not accessible outside of class. Another access modifier is `readonly` which makes a property read-only from both outside and inside of a class, and not allowing to change it anywhere. We can skip declaring variables inside class by using access modifiers directly in parameters of constructor function. Example:
+Classes in TypeScript are similar to those in JavaScript. Class is a blueprint to create an object with some fields (values) and methods (functions) to represent a 'thing'. It is also possible to create an array of class objects, similar to string arrays and object arrays. By default, all properties of a class are public. Private properties are not accessible outside of class. Another access modifier is `readonly` which makes a property read-only from both outside and inside of a class, and not allowing to change it anywhere. We can skip declaring variables inside class by using access modifiers directly in parameters of constructor function. Classes have dual-nature in TypeScript: to create new instances of the class, or refer to the type of the class. A class can inherit properties and methods of another class, and also override them by using `extends` keyword. Example:
 ```ts:title=Invoice.ts
 export class Invoice {
     private clientName: string;
@@ -133,6 +136,8 @@ export class Invoice {
     }
 }
 ```
+Modifiers are keywords that can be placed on different properties and methods in a class to restrict access to them. `public, private and protected` are the different modifiers. Marking a method as `private` means it can only be called by other methods in the class. Marking a method as `protected` means it can only be called by other methods in the class, or by other methods in the child classes. Modifiers assigned in parent class cannot be changed in child class.
+
 To use ES6 modules, add `type="module"` to `<script>` tag. But TypeScript always compiles different .ts files into .js files, requiring multiple requests in web. Webpack can solve this by compiling files into a single file, and also ensuring older browsers support.   
 ```ts:title=app.ts
 import { Invoice } from "./Invoices.js"; // .js file because we're importing compiled JS file 
@@ -141,7 +146,7 @@ let invoicesArray: Invoice[] = []; // only Invoice objects are allowed for this 
 ```
    
 ## Interfaces
-An interface allows us to enforce a certain structure of a class or an object. It can be used to describe types of properties and return types of methods. It is different from a class as it is not used to generate objects. Objects which are declared using an interface must follow the structure set by that interface; they cannot have anything else. Use `implements` keyword for implementing an interface inside a class. Example: 
+An interface allows us to enforce a certain structure of a class or an object. It can be used to describe types of properties and return types of methods. An interface creates a new type, describing the property names and value types of an object. It is different from a class as it is not used to generate objects. The interface definition can contain any types, including primitives and function types. Objects which are declared using an interface must follow the structure set by that interface; they cannot have anything else, but they can have additional properties which aren't defined in the interface. Use `implements` keyword for implementing an interface inside a class i.e., ensuring the class implements all methods and properties declared by the interface. Example: 
 ```ts
 interface IsPerson {
     name: string;
@@ -174,17 +179,106 @@ interface Resource<T> { // T can extend anything, like object,string or array
 }
 // variables implementing this interface can use anything for T, like: Resource<string>, Resource<object> etc.
 ```
+Generics are like function arguments, but applied for types in class/function definitions. They allow us to define the type of a property/argument/return value at a future point, and are used heavily while writing reusable code. TypeScript also supports type inference for Generics. The identifier used in generics (example: T) can extend any interface, which basically promises TypeScript that the identifier will always contain properties and methods defined in that interface. This is called Generic Constraint, which limits the types that can be passed to the identifier.   
 
 ## Enums and Tuples
-Enums are a special type in TypeScript which allows to store a set of constants or keywords and associate them with a numeric value. Enum is a way to specify descriptive constants and associate each one with a numeric value. Example:
+Enums are a special type in TypeScript which allows to store a set of constants or keywords and associate them with a numeric value. Enum is a way to specify descriptive constants and associate each one with a numeric value. Enums follow near-identical syntax rules as normal objects, and they are used whenever we have a small fixed set of values that are all closely related and known at compile time. Example:
 ```ts
 enum MovieType { ACTION, ADVENTURE, ROMANCE, COMEDY, DRAMA };
 let someVar: MovieType = MovieType.DRAMA; // outputs 4 in console.log
 ```
 
-Tuples are similar to arrays, having same array methods, but the major difference is that the types of data in each position in a tuple is fixed once it has been initialized. Example:
+Tuples are similar to arrays, having same array methods, but the major difference is that the types of data in each position in a tuple is fixed once it has been initialized. A tuple is an array-like structure where each element represents some property of a record. Example:
 ```ts
 let someTup: [string, number, boolean] = ['John', 26, true]; // now changing types at different positions is not allowed 
+```
+
+## Type Definitions
+TypeScript has two main kinds of files. `.ts` files are implementation files that contain types and executable code. These are the files that produce `.js` outputs, and are where we would normally write our code. `.d.ts` files are declaration files that contain only type information. These files don’t produce `.js` outputs; they are only used for typechecking.   
+
+TypeScript includes declaration files for all of the standardized built-in APIs available in JavaScript runtimes. This includes things like methods and properties of built-in types like string or function, top-level names like Math and Object, and their associated types. By default, TypeScript also includes types for things available when running inside the browser, such as window and document; these are collectively referred to as the DOM APIs. TypeScript names these declaration files with the pattern `lib.[something].d.ts`. If we navigate into a file with that name, we can know that we’re dealing with some built-in part of the platform, not user code.   
+
+If a library we’re using is published as an npm package, it may or may not include type declaration files as part of its distribution. If it doesn't include these files, TypeScript cannot figure out what different types of values are being used in this library code. To overcome this, type definition files are used. A **type definition file** is like an adapter between our TypeScript code and the JavaScript libraries that we try to work with. A type definition file tells the TypeScript compiler about all the different functions that are available inside this JavaScript library, what type of argument they receive and what type of value they return.    
+
+The [DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped) repository is a centralized repo storing declaration files for thousands of libraries. The vast majority of commonly-used libraries have declaration files available on DefinitelyTyped. Definitions on DefinitelyTyped are also automatically published to npm under the `@types` scope. The name of the types package is always the same as the name of the underlying package itself. TypeScript automatically finds type definitions under `node_modules/@types`, so there’s no other step needed to get these types available in our program.  
+
+## Abstract Classes
+Abstract Classes cannot be used to create an object/instance directly. They can only be used as a parent class, and they can contain real implementation for some methods. The implemented methods can refer to other methods that don't actually exist yet (we still have to provide names and types for the un-implemented methods). Abstract class can make child classes promise to implement some other method. 'abstract' keyword is used to mark methods as those that do exist, and will be eventually defined in the child classes. Inherited abstract members from a parent class should have the exact same names as those declared in parent class.
+
+Differences between interfaces and abstract classes: interfaces promote loose coupling, and can be used when we have very different objects that we want to work together; abstract classes strongly couple classes together, and typically used when we're trying to build up a definition of an object. Inheritances are characterized by an 'is a' relationship between 2 classes, while compositions are characterized by a 'has a' relationship between 2 classes. Delegation pattern is a way of implementing composition.
+
+## Decorators
+Decorators are an experimental feature that may change in future releases. They are functions that can be used to modify/change different properties/methods in a class. They're not the same as JavaScript decorators, as they can be used inside/on classes only. Understanding the order in which the decorators are ran is the key to learn them. A Decorator is a special kind of declaration that can be attached to a class declaration, method, accessor, property, or parameter. Decorators use the form `@expression`, where expression must evaluate to a function that will be called at runtime with information about the decorated declaration.   
+
+Decorators on a property, method or accessor have the first argument as the prototype of the object, second argument as the key of the property/method/accessor of the object, third argument as the property descriptor. Decorators are executed only once; they are ran when the code for the class is executed / class is defined (not when an instance is created). Decorators cannot be used to read the values of any property for any instance of a class, as decorators are executed before the class is instantiated. Decorators can also be applied to static methods, static properties and static accessors as well.    
+
+A **property descriptor** is an object that has some configuration options around a property defined on an object. It is actually part of ES5 JavaScript, not TypeScript. It is usually meant to configure a property on another object. Property descriptors for methods have the following options:
+- writeable: whether or not this property can be changed
+- enumerable: whether or not this property can get looped over by a 'for...in'
+- value: current value
+- configurable: whether or not the property definition can be changed and property can be deleted   
+
+`Object.getOwnPropertyDescriptor(obj, <obj's property as a string>)` can provide a property descriptor containing the above options for any object. To change the property descriptor, use `Object.defineProperty(obj, <obj's property as a string>, <new definition obj with any/all of the options above>)`. We cannot use target and key arguments of decorator to directly override any object's prototype as TypeScript internally applies a property descriptor back to the prototype once a decorator is called. Hence, the third argument of decorator - Property Descriptor is used to achieve this functionality.   
+
+If we want to customize how a decorator is applied to a declaration, we can write a decorator factory. A Decorator Factory is simply a function that returns the expression that will be called by the decorator at runtime. Multiple decorators can be applied to a declaration, for example on a single line. When multiple decorators apply to a single declaration, their evaluation is similar to function composition in mathematics. Example:
+```ts
+@classDecorator
+class Boat {
+  @testDecorator
+  color: string = 'red';
+
+  @testDecorator
+  get formattedColor(): string {
+    return `This boats color is ${this.color}`;
+  }
+
+  @logError('Something bad!')
+  pilot(
+    @parameterDecorator speed: string,
+    @parameterDecorator generateWake: boolean
+  ): void {
+    if (speed === 'fast') {
+      console.log('swish');
+    } else {
+      console.log('nothing');
+    }
+  }
+}
+
+// this is a class decorator which is applied to the class itself
+// the only argument to this, is the constructor of that class 
+function classDecorator(constructor: typeof Boat) {
+  console.log(constructor);
+}
+
+// this is a parameter decorator, where the third argument is the actual index of the argument this decorator is being applied to
+function parameterDecorator(target: any, key: string, index: number) {
+  console.log(key, index);
+}
+
+// here the 1st argument is prototype of Boat class, i.e., an object with all the functions defined in class Boat
+// and the 2nd argument is the key/name of the thing to which the decorator is applied
+function testDecorator(target: any, key: string) {
+  console.log(key);
+}
+
+// this is a decorator factory
+function logError(errorMessage: string) {
+  // PropertyDescriptor type is globally available in TypeScript
+  return function(target: any, key: string, desc: PropertyDescriptor): void {
+    // target[key] = () => {}   !!! NOT ALLOWED
+    const method = desc.value;
+
+    // modifying the PropertyDescriptor of the decorated function to better handle errors
+    desc.value = function() {
+      try {
+        method();
+      } catch (e) {
+        console.log(errorMessage);
+      }
+    };
+  };
+}
 ```
 
 ## Credits & Attributions

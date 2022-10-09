@@ -1,0 +1,61 @@
+---
+title: Docker Guide
+date: 2022-10-09
+description: Brief introduction to Docker concepts
+slug: "/docker-guide"
+tags:
+  - Docker
+  - CI / CD
+  - Introduction
+---
+
+## Introduction
+
+Docker is an open platform for developing, shipping, and running applications. Docker enables us to separate our applications from our infrastructure so we can deliver software quickly. With Docker, we can manage our infrastructure in the same ways we manage our applications. By taking advantage of Docker’s methodologies for shipping, testing, and deploying code quickly, we can significantly reduce the delay between writing code and running it in production. Docker makes it really easy to install and run software without worrying about setup or dependencies. 
+
+Docker provides the ability to package and run an application in a loosely isolated environment called a container. The isolation and security allows us to run many containers simultaneously on a given host. Containers are lightweight and contain everything needed to run the application, so we do not need to rely on what is currently installed on the host. We can easily share containers while we work, and be sure that everyone you share with gets the same container that works in the same way.
+
+Docker provides tooling and a platform to manage the lifecycle of our containers:
+- Develop our application and its supporting components using containers.
+- The container becomes the unit for distributing and testing your application.
+- When we’re ready, deploy our application into your production environment, as a container or an orchestrated service. This works the same whether your production environment is a local data center, a cloud provider, or a hybrid of the two.
+
+Docker uses a client-server architecture. The Docker client talks to the Docker daemon, which does the heavy lifting of building, running, and distributing our Docker containers. The Docker client and daemon can run on the same system, or we can connect a Docker client to a remote Docker daemon. The Docker client and daemon communicate using a REST API, over UNIX sockets or a network interface. Another Docker client is Docker Compose, that lets us work with applications consisting of a set of containers. The Docker daemon (dockerd) listens for Docker API requests and manages Docker objects such as images, containers, networks, and volumes. A daemon can also communicate with other daemons to manage Docker services.
+
+![Docker Architecture](./dockerarchitecture.svg)
+
+Docker uses a technology called namespaces to provide the isolated workspace called the container. When you run a container, Docker creates a set of namespaces for that container. The process of segmenting part of a resource based on the process requesting the resource is called namespacing. These namespaces provide a layer of isolation. Each aspect of a container runs in a separate namespace and its access is limited to that namespace. Linux namespaces provide isolation for running processes, limiting their access to system resources without the running process being aware of the limitations. Namespaces are a feature of the Linux kernel that partitions kernel resources such that one set of processes sees one set of resources while another set of processes sees a different set of resources. A control group (cgroup) is a Linux kernel feature that limits, accounts for, and isolates the resource usage (CPU, memory, disk I/O, network, and so on) of a collection of processes. We can use cgroups to control how much of a given key resource (CPU, memory, network, and disk I/O) can be accessed or used by a process or set of processes. Cgroups are a key component of containers because there are often multiple processes running in a container that you need to control together. Namespaces provide isolation of system resources, and cgroups allow for fine‑grained control and enforcement of limits for those resources. 
+
+
+## Images
+
+An image is a read-only template with instructions for creating a Docker container. Often, an image is based on another image, with some additional customization. For example, we may build an image which is based on the ubuntu image, but installs the Apache web server and our application, as well as the configuration details needed to make our application run.
+
+We can create our own images or we can only use those created by others and published in a registry. To build our own image, we create a Dockerfile with a simple syntax for defining the steps needed to create the image and run it. Each instruction in a Dockerfile creates a layer in the image. When we change the Dockerfile and rebuild the image, only those layers which have changed are rebuilt. This is part of what makes images so lightweight, small, and fast, when compared to other virtualization technologies.
+
+Docker can build images automatically by reading the instructions from a Dockerfile. A Dockerfile is a text document that contains all the commands a user could call on the command line to assemble an image, which defines how a container should behave. Using `docker build` users can create an automated build that executes several command-line instructions in succession. To create a Dockerfile, we specify a base image, run some commands to install additional commands if needed, and then specify a command to run on container startup
+
+## Containers
+
+A container is a runnable instance of an image. We can create, start, stop, move, or delete a container using the Docker API or CLI. We can connect a container to one or more networks, attach storage to it, or even create a new image based on its current state.
+
+By default, a container is relatively well isolated from other containers and its host machine. We can control how isolated a container’s network, storage, or other underlying subsystems are from other containers or from the host machine.
+
+A container is defined by its image as well as any configuration options you provide to it when you create or start it. When a container is removed, any changes to its state that are not stored in persistent storage disappear.
+
+
+## Docker CLI commands
+- `docker version` - prints out the docker client and server versions
+- `docker run <image-name>` - downloads the image from container registry (if not present on local system) and runs it as a container. This command creates a file system snapshot of the downloaded image and runs the default startup command associated with the image, which can be overridden by providing additional arguments to the command, syntax: `docker run <image-name> <additional-commands>`, and example: `docker run busybox echo hello there`. Also, `docker run` = `docker create` + `docker start`. To start a shell instead of running default command, use `docker run -it <image-name> sh`.
+- `docker ps` - lists all currently running containers on the machine. Use `--all` or `-a` to list all containers, including those that aren't running
+- `docker create <image-name>` - creates a container from an image i.e., creates a file system snapshot of the downloaded image
+- `docker start -a <container-id>` - runs a created container. `-a` argument is attaching container stdout to terminal for printing output from container. This command can also be used to restart stopped/exited containers, but the default command assigned to the container cannot be changed during restart.
+- `docker system prune` - removes all unused/stopped containers, networks, images (both dangling and unreferenced), build cache and optionally, volumes
+- `docker logs <container-id>` - fetches the logs of a container by batch-retrieving logs present at the time of execution
+- `docker stop <container-id>` - stops one or more running containers by sending `SIGTERM` (signal termination) signal to the main process running in the container, and then after a grace period, sending `SIGKILL` signal to it
+- `docker kill <container-id>` - kills one or more running containers by sending `SIGKILL` signal to the main process running in the container
+- `docker exec -it <container-id> <command>` - runs a new command in a running container, where `-it` allows us to type and provide inputs directly into the container: `-i` attaches our terminal to the `STDIN` of the new command's running process, and `-t` allocates a pseudo TTY to display typed input (associated with process) in terminal. Use `sh` command to gain access to container shell (command processor) and enter commands directly inside it. Example: `docker exec -it 4e3d15293585 sh`. Use `CTRL+D` or `exit` to exit the shell.
+
+## Credits & Attributions
+
+- [Official Docker Documentation](https://docs.docker.com/get-started/overview/)
