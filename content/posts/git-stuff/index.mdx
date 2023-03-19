@@ -1,0 +1,150 @@
+---
+title: Git Stuff
+date: 2023-03-19
+description: Complete guide to all things Git
+slug: "/git-stuff"
+tags:
+  - Git
+  - CI / CD
+  - DevOps
+---
+
+> This post is under work in progress, and hence, isn't complete yet.
+
+## Introduction
+
+Git is a distributed version control and source code management system.
+
+It does this through a series of snapshots of your project, and it works with those snapshots to provide you with functionality to version and manage your source code.
+
+## Versioning Concepts
+
+Version control is a system that records changes to a file(s), over time.
+
+### Centralized Versioning vs. Distributed Versioning
+
+- Centralized version control focuses on synchronizing, tracking, and backing up files.
+- Distributed version control focuses on sharing changes. Every change has a unique id.
+- Distributed systems have no defined structure. You could easily have a SVN style, centralized system, with git.
+
+### Git Architecture
+
+Repository - A set of files, directories, historical records, commits, and heads. Imagine it as a source code data structure, with the attribute that each source code “element” gives you access to its revision history, among other things.
+
+A git repository is comprised of the .git directory & working tree.
+
+- .git Directory (component of repository) - The .git directory contains all the configurations, logs, branches, HEAD, and more. Detailed List.
+- Working Tree (component of repository) - This is basically the directories and files in your repository. It is often referred to as your working directory.
+
+Index (component of .git dir) - The Index is the staging area in git. It’s basically a layer that separates your working tree from the Git repository. This gives developers more power over what gets sent to the Git repository.
+
+Commit - A git commit is a snapshot of a set of changes, or manipulations to your Working Tree. For example, if you added 5 files, and removed 2 others, these changes will be contained in a commit (or snapshot). This commit can then be pushed to other repositories, or not!
+
+Branch - A branch is essentially a pointer to the last commit you made. As you go on committing, this pointer will automatically update to point to the latest commit.
+
+Tag - A tag is a mark on specific point in history. Typically people use this functionality to mark release points (v1.0, and so on).
+
+HEAD and head (component of .git dir) - HEAD is a pointer that points to the current branch. A repository only has 1 active HEAD. head is a pointer that points to any commit. A repository can have any number of heads.
+HEAD branch is the currently 'active' or 'checked out' branch. There can only be one active branch at a time, that is HEAD branch.
+99% of the time, 'working' with branches means local branches, of local repository. Remote branches are mainly for synchronizing. Bulk of the actual work happens in local branches.
+
+### Stages of Git
+
+1. Modified - Changes have been made to a file but file has not been committed to Git Database yet
+2. Staged - Marks a modified file to go into your next commit snapshot
+3. Committed - Files have been committed to the Git Database
+
+### Git commands
+
+1. `git init` - Creates an empty Git repository. The Git repository’s settings, stored information, and more is stored in a directory (a folder) named “.git”.
+2. `git config` - To configure settings. Whether it be for the repository, the system itself, or global configurations ( global config file is ~/.gitconfig ).
+3. `git help` - To give you quick access to an extremely detailed guide of each command. Or to just give you a quick reminder of some semantics.
+4. `git branch <new-branch-name>` - creates a new branch based on your current HEAD branch. Git will assume that new branch will be started based on the current checked out revision. To create a new branch on a different past revision, use `git branch <new-branch-name> <previous/past commit hash>` (8-letter commit)
+   For new branch, git will include all past commits and files by default. For branch started on specific commit, git will include commits and files from that commit, inclusive. Creating new branches happens only in local repository. Creating branches in remote repository happens by publishing existing local branch.
+5. `git checkout <other-branch>` - switches to a different branch. The current / checked-out branch defines the context of work that is in at the moment. It is where new commits will be created, in that context.
+6. `git switch <other-branch>` - switches to a different branch. This differs from the `checkout` command.
+7. `git branch -m <new-name>` - renames the current HEAD branch. To rename a different branch (not the current / checked-out branch), use:
+
+```bash
+git branch -m <old-branch-name> <new-name>
+git branch # simply lists out all branches in a repository
+```
+
+Git doesn't allow to rename remote branches usually. Renaming a remote branch involves deleting the old one and then pushing up and publishing the new one from local repository.
+First, delete the current / old branch. Then, simply push the new local branch with the correct name.
+
+```bash
+git push origin --delete <old-branch-name>
+git push -u origin <new-name>
+```
+
+8. `git push -u origin <local-branch>` - 'uploads' a new branch for the first time. It is not possible to create a new branch on a remote repository, but we can publish an existing local branch on a remote repository, so we can upload what we have locally to the remote server. '-u' flag is used to establish a tracking connection, which eases pushing and pulling later.
+
+### Tracking Branches - connecting branches with each other
+
+Local and remote branches are stored and managed as independent objects in Git, but they have some relationship in real-life. A local branch can typically track a remote branch. Example:
+
+```bash
+# needs better diagram
+c1 <- c2 <------- c5 - local branch 'develop'
+      \---- c3 <- c4 - remote branch 'origin/develop'
+```
+
+In this case, local branch `develop` tracks remote branch 'origin/develop` and
+
+- it is 1 commit **ahead** because c5 hasn't been pushed yet
+- it is 2 commits **behind** because c2 + c4 haven't been integrated, yet
+
+Tracking connection can fill in the blanks because it knows the remote branch from where push / pull needs to be done
+`git branch --track <local-branch-name> <origin/remote-branch-name>` - used to setup tracking from corresponding remote branch to local branch. If such local branch doesn't exist, it will be created. Another way:
+`git checkout --track <origin/remote-branch-name>` - this downloads remote branch, and switches to it. Example: `git checkout --track origin/develop` - downloads develop branch and sets up tracking to it.
+
+### Pulling and Pushing Branches - Synchronizing your local + remote branches
+
+- `git pull` - download new commits from remote
+- `git push` - uploading new changes to remote
+- `git branch -v` - get all update info from a branch (what's changed, both on local and remote). **ahead** - new local commits, **behind** - new remote commits
+
+### Deleting Branches - deleting a branch in your local repository
+
+- `git branch -d <branch-name>` - It is not possible to delete the current HEAD branch, as it is active. So, switch to another branch, and delete the desired one. Git will warn user, if you're deleting a branch that has specific new commits compared to rest of the branches. In such case, `-f` option is necessary to delete
+- `git push origin --delete <remote-branch-name>` - Used to delete remote branch. While deleting a branch, keep in mind to check if you should delete its counterpart branch to write the tracking branch
+
+### Merging Branches - integrating changes from another branch into your current local HEAD branch
+
+It is essentially bringing new commits from another branch into your current HEAD branch. It needs 2 steps: First, check out the branch that should receive the changes. Then, execute the `merge` command with the name of branch that contains the desired changes
+
+- `git switch main` -> `git switch <receiving-branch>`
+- `git merge feature/uploader` -> `git merge <merging-branch-name>`
+  Executing `merge` command will open up an editor (to provide new commit message), because merging not often produces a successful merge commit
+
+### Rebasing Branches
+
+An alternative way to integrate changes from another branch into your current local HEAD branch. `insert diagram here`. Main difference is: there is no separate `merge commit` created for rebase. Using rebase, it appears as if development history had happened in a straight line. There's no branching. `git rebase <merging-branch-name>`. HEAD branch change commiots are put at end
+
+### Comparing Branches
+
+This is done by checking which commits are in branch B, but not in branch A
+
+```bash
+git log <branch-a>..<branch-b> # shows commits of branch B
+git log origin/main..main # changes in local main that is not there in remote
+```
+
+### Handy Git Commands
+
+- `git init <directory>` - creates empty git repo in specified directory. Run with no arguments to initialize the current directory as a git repository
+- `git clone <repo>` - clone repo located at `<repo>` onto local machine. Original repo can be located on the local filesystem or on a remote machine via HTTP or SSH
+- `git diff` - show unstaged changes between your index and working directory
+- `git revert <commit>` - create a new commit that undoes all of the changes made in `<commit>`, then apply it to the current branch
+- `git reset <file>` - remove `<file>` from the working area, but leave the workign directory unchanged. This unstages a file without overwriting any changes
+- `git clean -n` - shows which files would be removed from the working directory. Use `-f` flag in place of the `-n` flag to execute clean
+- `git reflog` - shows a log of changes to the local repository's HEAD. Add `--relative-date` flag to show date info or `--all` to show all refs
+- `git add <directory>` - stage all changes in `<directory>` for the next commit. Replace `<directory>` with a `<file>` to change a specific file
+- `git commit --amend` - replace the last commit with the staged changes and last commit combined. Use with nothing staged to edit the last commit's message
+
+## Credits & Attributions
+
+- [Atlassian Git Tutorials](https://www.atlassian.com/git)
+- [Git Documentation](https://git-scm.com/doc)
+- [Learn X in Y minutes - Git](https://learnxinyminutes.com/docs/git/)

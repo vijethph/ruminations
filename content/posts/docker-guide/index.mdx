@@ -9,6 +9,8 @@ tags:
   - Introduction
 ---
 
+> This post is under work in progress, and hence, isn't complete yet.
+
 ## Introduction
 
 Docker is an open platform for developing, shipping, and running applications. Docker enables us to separate our applications from our infrastructure so we can deliver software quickly. With Docker, we can manage our infrastructure in the same ways we manage our applications. By taking advantage of Docker’s methodologies for shipping, testing, and deploying code quickly, we can significantly reduce the delay between writing code and running it in production. Docker makes it really easy to install and run software without worrying about setup or dependencies. 
@@ -22,7 +24,7 @@ Docker provides tooling and a platform to manage the lifecycle of our containers
 
 Docker uses a client-server architecture. The Docker client talks to the Docker daemon, which does the heavy lifting of building, running, and distributing our Docker containers. The Docker client and daemon can run on the same system, or we can connect a Docker client to a remote Docker daemon. The Docker client and daemon communicate using a REST API, over UNIX sockets or a network interface. Another Docker client is Docker Compose, that lets us work with applications consisting of a set of containers. The Docker daemon (dockerd) listens for Docker API requests and manages Docker objects such as images, containers, networks, and volumes. A daemon can also communicate with other daemons to manage Docker services.
 
-![Docker Architecture](./dockerarchitecture.svg)
+![Docker Architecture](./docker-architecture.png)
 
 Docker uses a technology called namespaces to provide the isolated workspace called the container. When you run a container, Docker creates a set of namespaces for that container. The process of segmenting part of a resource based on the process requesting the resource is called namespacing. These namespaces provide a layer of isolation. Each aspect of a container runs in a separate namespace and its access is limited to that namespace. Linux namespaces provide isolation for running processes, limiting their access to system resources without the running process being aware of the limitations. Namespaces are a feature of the Linux kernel that partitions kernel resources such that one set of processes sees one set of resources while another set of processes sees a different set of resources. A control group (cgroup) is a Linux kernel feature that limits, accounts for, and isolates the resource usage (CPU, memory, disk I/O, network, and so on) of a collection of processes. We can use cgroups to control how much of a given key resource (CPU, memory, network, and disk I/O) can be accessed or used by a process or set of processes. Cgroups are a key component of containers because there are often multiple processes running in a container that you need to control together. Namespaces provide isolation of system resources, and cgroups allow for fine‑grained control and enforcement of limits for those resources. 
 
