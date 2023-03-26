@@ -12,9 +12,9 @@ const config: GatsbyConfig = {
     // Used for the title template on pages other than the index site
     siteTitle: `Ruminations`,
     // Default title of the page
-    siteTitleAlt: `Ruminations - Personal Blog`,
+    siteTitleAlt: `Ruminations - Personal Blog of Vijeth P H`,
     // Can be used for e.g. JSONLD
-    siteHeadline: `Ruminations - Personal Blog`,
+    siteHeadline: `Ruminations - Personal Blog of Vijeth P H`,
     // Will be used to generate absolute URLs for og:image etc.
     siteUrl: `https://vijethph.github.io/ruminations`,
     // Used for SEO
