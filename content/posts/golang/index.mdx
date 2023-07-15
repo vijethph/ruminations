@@ -1,0 +1,303 @@
+---
+title: Go Essentials
+date: 2023-07-15
+description: Introduction to Go programming language
+slug: "/golang"
+tags:
+  - Go
+  - Introduction
+  - Programming Language
+---
+
+## Introduction
+
+Go is expressive, concise, clean, and efficient. Its concurrency mechanisms make it easy to write programs that get the most out of multicore and networked machines, while its novel type system enables flexible and modular program construction. Go compiles quickly to machine code yet has the convenience of garbage collection and the power of run-time reflection. It's a fast, statically typed, compiled language. Go is not an object oriented programming language.
+
+### Basic Commands
+
+Running `go` in terminal provides a list of options. This command is a tool to interact with Go language, which is mainly used to build, compile, test and do other things with Go projects.
+
+To run code, use `go run filename.go`. Some Go CLI commands:
+
+- `go build` - Compiles a bunch of Go source code files
+- `go run` - Compiles and executes one or two files
+- `go fmt` - Formats all the code in each file in the current directory
+- `go install` - Compiles and "installs" a package
+- `go get` - Downloads the raw source code of someone else's package
+- `go test` - Runs any tests associated with the current project
+
+> ### Reading command-line arguments
+>
+> `os.Args` is a slice of type string that represents the actual command-line arguments that are provided to the program. The first element in this slice is the temporary file that is created when the program is compiled.
+
+## Packages
+
+In Go, a package, project and a workspace mean the same. A package is a collection of common source code files. Only requirement for every file inside a package: it should declare the package name it belongs to at the very first line.
+
+There are 2 types of packages:
+
+1. Executable packages - which generate executable files on compilation that we can run
+2. Reusable packages - code used as "helpers". Good place to put reusable logic
+
+Package naming convention determines the type of package. Specifically, the name "main" is used to create an executable type package. Running `go build` for any package which is not named "main" would not produce executable package. In the Go source code files, `package main` defines a package that can be compiled and then executed. It must have a function called "main" defined within the files. `package somename` defines a package that can be used as a dependency.
+
+`import` statements are used to access codes in other packages. `fmt` is a standard library package which is used to print information to the terminal. Package `fmt` implements formatted I/O with functions analogous to C's printf and scanf. To import multiple packages, use this syntax: `import ( "pkg1" "pkg2" ..... )`.
+
+## Variables and Pointers
+
+Go variables are always assigned types, which do not change. Different data types in Go are: bool, string, int, float64. Alternative way of declaring variables, where type is initialized - example: `somevar := "hello"`. `:=` is only used for variable initialization. = is used for variable reassignment of values. Declaring string variables example: `var card string = "hello"`.
+
+When we create a variable in Go and do not assign any value to it, Go assigns what is referred to as a zero value (in case of a struct, zero values to each struct field). It varies for each type. It is "" for `string`, 0 for `int` and `float`, and false for `bool`. Type conversion is done in Go by specifying the type to which the value needs to be converted, and the value in parentheses.
+
+## Slices and Arrays
+
+Go has 2 basic data structures for handling lists of elements:
+
+1. array - fixed length list of elements
+2. slice - an array that can grow or shrink
+
+Both slices and arrays must be declared with a data type, and all elements within them can only have that data type.
+
+- Slice example: `somelist := []string{"hello", "there", "what"}`.
+- Adding new element to a slice: `cards = append(cards, "oooh")`. It does not modify the existing slice; it creates a new slice and returns it.
+- Iterate over elements of a slice:
+  ```go
+  for i,card := range cards {
+    fmt.Println(i, card)
+  }
+  ```
+  The initialization syntax in for loop: `for i, card := range cards {}` is used because these variables keep changing fof every iteration. Hence they are freshly initialized.
+- To get a subset of elements from a slice, this syntax is used: `arr[i,j]` - where i denotes starting index, and j denotes ending index. All elements from i to j-1 are retrieved.
+- In a for loop, we do not need to always get a reference to the element that we are iterating over in some cases. `len()` is used to get the length of a slice. Example: len(arr) gets the length of slice named arr.
+
+## Functions and Receivers
+
+Functions are declared using `func` keyword, name of the function and argument list, followed by function body. We can extend a base type in Go and add some functionality to it. Example: `type deck []string`. The custom type that we declare by extending the base types gives us the ability to create custom functions that only work with that type.
+
+A function with a "receiver" is like a method - a function that belongs to an instance. Receiver on a function example:
+
+```go
+type deck []string
+
+func (d deck) print() {
+    for i,card := range d {
+        fmt.Println(i, card)
+    }
+}
+```
+
+In this syntax, any variable of type `deck` gets access to the print method. The receiver sets up methods on variables that we create. By convention, we usually refer to the receiver with a 1/2 letter abbreviation that matches the type of receiver. To return a value from a function, we must annotate the function with the type of value that is returned, and this is specified after function parantheses. If we have some variable declared that we don't actually have to use, then we can replace it with '\_' which tells Go that it is an unused variable.
+
+It is possible to return multiple values from a function. Example: `func deal (d deck, handSize int) (deck, deck) { }`. While returning multiple values from a function, Go expects their types to be annotated in function declaration.
+
+### Struct
+
+It is a data structure in Go which represents collection of different properties that are related together and have a common purpose. To define a struct, declare all the properties that it can contain, and then create a new value of that struct type. Example:
+
+```go
+type person struct {
+    firstName string
+    lastName string
+}
+
+// initializing variables and updating them (multiple ways)
+john := person{"John","Wick"}
+ethan := person{firstName: "Ethan", lastName: "Hunt"}
+var bruce person // declares a value of type person and assigns it to the variable
+bruce.firstName = "Bruce"
+```
+
+> `fmt.Printf("%+v", structvar)` prints out all different field names and their values from structvar.
+
+It is possible to embed a struct within another struct. Example:
+
+```go
+type contactInfo struct {
+    email string
+    zipCode int
+}
+
+type person struct {
+    name string
+    contact contactInfo // it is also possible to have field name same as type name - example: by just declaring this as:
+    // contactInfo
+}
+
+jim := person{
+    name: "Jim Halpert",
+    contact: contactInfo{
+        email: "jim@abc.com",
+        zipCode: 12345,
+    },
+}
+
+jimPointer := &jim // assigns the memory address of the value this variable is pointing at
+jimPointer.updateName("Jimmy")
+// alternative: jim.updateName("Jimmy") since Go allows both variables and their pointers to invoke receivers
+
+func (p person) print() {} // it is possible to define functions that have receivers with structs as well
+// but updates on struct do not have any effect in this case, so pointers are used
+
+func (pt *person) updateName(newName string){
+    (*pt).name = newName // *pt - represents the actual value that this memory address is pointing at, and *person represents the pointer type
+}
+```
+
+### Pass by value and pass by reference
+
+Go is a pass-by-value language, which means Go takes values passed into functions, copy those values and place them in new variables within function scopes. However, this case is different for slices. Go internally creates 2 data structures when a slice is created: 1 - a structure with a pointer to head, capacity and length fields, and 2 - an array. When we pass in a slice to a function, Go re-creates the first data structure, which would still point towards the existing array (2nd data structure). This would allow functions to modify slices without the use of pointers. Slice is considered as a **reference type** as it is a reference to another data structure in memory.
+
+Value Types - int, float, string, bool, structs. We should use pointers to modify these things inside functions
+Reference Types - slices, maps, channels, pointers, functions. No need to use pointers to modify these.
+
+> Easy way to remember pointers:
+>
+> 1. Turn **address** into **value** with `*address`
+> 2. Turn **value** into **address** with `&value`
+
+If we define a receiver function with a type of pointer to any object, Go will allow us to call this function with either the object or the pointer (both are allowed). In receiver functions, if we do not use the variables (based on which they're defined), then they can just mention the type instead of mentioning both variable name and type. Example: `func (deck) something() string {}`.
+
+Functions can also be passed as arguments to other functions. Go doesn't support function overloading (functions with same names) even if arguments and other parts are different.
+
+### Maps
+
+A map is a collection of key-value pairs. All the keys and values are of the same type, but the key-value pair need not be of same type. Unlike structs, Dot syntax is not allowed in maps to add/modify key-value pairs, because all keys inside a map are typed. Example:
+
+```go
+// different types of declaring maps:
+
+// all keys are of type string, and all values are of type string
+colors := map[string]string {
+    "red": "#FF0000",
+    "blue": "#0000FF",
+}
+colors["white"] = "#FFFFFF"
+
+delete(colors, "blue") // deletes the specified key from the map
+
+var places map[string]int // initialized with zero value - here it is basically an empty map
+
+// make() - built-in function that takes a type of a slice and the number of elements the slice should have (zero values - initialized)
+countries := make(map[string]bool) // also initialized with zero value
+
+func printThisMap(c map[string]string){
+    for key, value := range c { // extracting each key-value pair
+        fmt.Println(color, hex)
+    }
+}
+printThisMap(colors)
+```
+
+### Differences between Maps and Structs
+
+|                                           Map                                            |                                      Struct                                      |
+| :--------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------: |
+|              All keys must be of same type. All values must be of same type              |                         Values can be of different type                          |
+|                   Used to represent a collection of related properties                   |          Used to represent a "thing" with a lot of different properties          |
+|                       Keys are indexed - we can iterate over them                        |                           Keys don't support indexing                            |
+| We don't need to know all the keys at compile time; key-value pairs can be defined later | We need to know (and explicitly define) all the different fields at compile time |
+|                                  It is a reference type                                  |                                It is a value type                                |
+
+## Interfaces
+
+Interfaces make it easier to reuse code between different parts of the code base. We use interfaces to define a method / function set which can be used for any values having the type of the interface. We can consider 2 types in this aspect: concrete type, which is something we can actually create a value out of directly and then access / modify it (example: map, struct, int), and interface type, using which we cannot create a value out of it directly. Interfaces are not generic types. Interfaces are **implicit**, which means we don't have to specify that our custom type satisfies some interface. They are a contract to help us manage types. They help us to reuse code and form a relation between different functions. Interfaces can be used as types inside structs, which indicates that the variable can have any value as long as it satisfies the interface definition. Interfaces can be combined in another interface by just specifying their names.
+
+Example:
+
+```go
+type bot interface {
+    getGreeting() string
+    // other function names, list of argument types and list of return types
+    // example: doSomething(string, int) (string, bool) {}
+}
+
+// if there is any type in this program that has a function called getGreeting which returns a string, then it satisfies the above interface, and therefore, the variables of that type also become the variables of the interface's type, and hence invoke any function based on interface's type
+
+type englishBot struct{}
+type spanishBot struct{}
+
+func main() {
+    eb := englishBot{}
+    sb := spanishBot{}
+
+    printGreeting(eb)
+    printGreeting(sb)
+}
+
+func printGreeting(b bot){
+    fmt.Println(b.getGreeting())
+}
+
+func (englishBot) getGreeting() string {
+    return "Hello there!"
+}
+
+func (spanishBot) getGreeting() string {
+    return "Hola!"
+}
+```
+
+Reader interface is a common one used in standard library which puts an abstraction around different sources of input coming into the application and provides a common output data that can be used by anyone. It has a `Read()` function where the application passes in a byte slice, and the function modifies it to add the input consumed by different sources. This function does not automatically resize the byte slice if it is full.
+
+Writer interface is another common one used in standard library which take information within our program (provided in byte slice) and send that data to some channel of output. `io.Copy()` is used to copy data from a source, that implements Reader interface, to a destination that implements Writer interface.
+
+```go
+type Reader interface {
+    Read(p []byte) (n int, err error)
+}
+
+type Writer interface {
+    Write(p []byte) (n int, err error)
+}
+
+func Copy(dst Writer, src Reader) (written int64, err error)
+```
+
+### Strings, Errors and Randomization
+
+A byte slice is an array where every element corresponds to an ASCII character code. `join()` function for strings (under strings standard library) joins an array of strings into a single string. `ioutil.WriteFile()` writes the contents of a byte slice to a file. But the file would display the string version of it, when viewed normally. `Spilt()` function under strings package splits a string given a separator, into a slice of strings.
+
+Errors are usually values of type "error". If nothing went wrong during processing, they will have a value of "nil" (which means no value in Go). If something went wrong, these error variables will be populated. `Exit()` function under the os package can be used to terminate program in any operating system. An exit code of 0 indicates successful run, and anything besides that indicates error.
+
+Go standard library does not have any built-in function to shuffle slices or arrays. The `Intn()` function generates a random number between 0 and the number we pass into the function. It is part of `math/rand` standard package. `rand.Intn()` is a pseudo random number generator. Go by default, uses a random number generator that depends upon some seed value. Go random number generator always uses the exact same seed. Type `Rand` is a source of random numbers. Rand is essentially an object that will also generate random numbers for us. This also means that values of type Rand can be used to specify seed / source of randomness.
+
+To create a value of type `Rand`, use the `New()` function, which accepts a source (which is the same as the seed), which can be used to generate random numbers. Current time in int64 format can be used as a seed for random number generator.
+
+### Testing
+
+Go testing isn't like RSpec, mocha, jasmine, selenium etc. We get a very small interface or a very small set of functions to test the code. To test code, create files that end with this format: `_test.go` and run all tests in a package by using `go test` command. All files that are present inside a directory must specify the package they belong to, including test files.
+
+Go testing handler calls all functions defined in test files with this argument: `t \*testing.T`. Here, t is the test handler which can be used to inform if tests go wrong. `t.Errorf()` is used to generate an error message and indicate that the test was unsuccessful. `Errorf` is a formatted string function where we can use "%v" in strings and then pass in variable values as subsequent arguments to substitute them in correct places. Unlike other testing frameworks, which specify the number of tests passed / failed, Go doesn't register any tests. It just tells if overall test is successful or not. Any resources created during testing should be manually cleaned up because there is no such feature in Go testing framework.
+
+## Channels and Go Routines
+
+Channels and Go Routines are both structures inside Go that are used for handling concurrent programming.
+
+When a Go program is compiled and executed, one Go routine is automatically created (main routine). It exists within the running process, executing every line of code. If there is a blocking call within the program (like a HTTP request), the Go routine cannot do anything else but wait for it to complete. `go` keyword is used to execute functions in new Go routines (called child routines). Syntax: `go funcName(args)` - this creates a new Go routine which executes the specified function.
+
+Go Scheduler works with only one CPU core in local machine (this is configurable). When we launch multiple Go routines, only one is being executed / running at any given time. The purpose of Go Scheduler is to monitor the execution of these Go routines. It runs one routine until it finishes or makes a blocking call, at which it runs another. If there are multiple CPU cores available, Go Scheduler assigns each routine to any available CPU core, thus running multiple routines at the same time.
+
+Concurrency - we can have multiple threads executing code. If one thread blocks, another one is picked up and worked on.
+Parallelism - multiple threads executed at the same time. Requires multiple CPUs.
+
+When we create multiple Go routines, the main routine ends execution if there isn't anything else to do after spawning child routines (even if they haven't finished execution yet). Channels are used to communicate between different running Go routines. Here, a channel is used to make sure that the main routine is aware of when each of these child routines have completed their execution. Data passed into channels are typed, just like any other variables. For example, a channel of type string can only send string variables to Go routines. Channels have to be passed into the functions which are launched as Go routines.
+
+Data is passed into the channel by the child routine whose blocking call is resolved first. If there are more listeners in the main routine compared to number of child routines invoked, then the main routine hangs indefinitely, waiting for data to show up in channel.
+
+Syntax for sending data with channels:
+
+- `someChan <- someVal` - send the value `someVal` into this channel named `someChan`
+- `myNumber <- someChan` - wait for a value to be sent into the channel named `someChan`. When we get a value, assign it to the variable `myNumber`
+- `fmt.Println(<-someChan)` - wait for a value to be sent into the channel named `someChan`. When we get a value, print it out immediately
+
+In Go, a function literal is an unnamed funciton that can be used to wrap some chunk of code that can be executed at some point in the future.
+
+We should not reference variables that are being maintained or used by other goroutines. No variable should be referenced in multiple goroutines. Instead, variable values should be passed to goroutines as function arguments.
+
+## Credits & Attributions:
+
+- [Official Go Documentation](https://go.dev/doc/)
+- [Go Playground](https://go.dev/play/)
+- [Go Standard Library Packages](https://pkg.go.dev/std)
+- [Go By Example Tutorials](https://gobyexample.com/)
+
