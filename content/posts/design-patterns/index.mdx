@@ -1,0 +1,177 @@
+---
+title: Design Patterns
+date: 2023-12-24
+description: Design Patterns in Python
+slug: "/design-patterns"
+tags:
+  - Design Patterns
+  - Software Engineering
+  - Python
+---
+
+## Introduction
+
+Design patterns are typically split into three categories, and this is called Gamma Categorization. The three categories are:
+
+1. **Creational Patterns** - deal with the creation (construction) of objects. Explicit (constructor) vs. implicit (DI, reflection, etc.). Wholesale (single statement) vs. piecewise (step-by-step).
+2. **Structural Patterns** - concerned with the structure (e.g., class members). Many patterns are wrappers that mimic the underlying class' interface. They strees the importance of good API design.
+3. **Behavioural Patterns** - they are all different; they do not have a lot in common. They are concerned with algorithms and the assignment of responsibilities between objects. They help objects communicate with each other.
+
+### Single Responsibility Principle / Separation of Concern
+
+If we have a class, the class should have its primary responsibility (whatever it is meant to be doing) and it should not take on other responsibilities. Do not overload objects with too many responsibilities. Antipattern: God object - putting everything into a kitchen sink-like single class. This principle prevents us from creating such God objects. It enforces the idea that a class should have a single reason to change and that change should be somehow related to its primary responsibility. Separation of concerns means different classes handling different, independent tasks / problems.
+
+### Open/Closed Principle
+
+Open for extension, closed for modification. We should be able to extend a class's behavior and add new features without modifying it. We should strive to write code that doesn't have to be modified every time the requirements change. This principle is achieved by using interfaces and abstract classes. We can extend the behavior of a class by writing a new class that implements the same interface or extends the same abstract class.     
+
+Breaking this principle causes state space explosion. Example: if we have a class that has a lot of if/else statements, we have to test all of the possible combinations of the if/else statements. We can avoid this by using polymorphism and inheritance.
+
+### Liskov Substitution Principle
+
+Objects in a program should be replaceable with instances of their subtypes without altering the correctness of that program. If we have a class A and a class B that extends A, we should be able to replace A with B without breaking the program. If we have an interface that has some sort of a base class, we should be able to add a derived class without breaking the program.        
+
+This principle is closely related to the Open/Closed Principle. If we have a class A and a class B that extends A, we should be able to extend the behavior of A by writing a new class C that extends B. We should be able to do this without modifying the code of A or B.
+
+### Interface Segregation Principle
+
+Clients should not be forced to depend on methods that they do not use. If we have an interface that has a lot of methods, we should split it into smaller interfaces. This principle is closely related to the Single Responsibility Principle. If we have a class that implements an interface, we should not force the class to implement methods that it does not need.
+
+### Dependency Inversion Principle
+
+High-level modules should not depend on low-level modules. Both should depend on abstractions. Abstractions should not depend on details. Details should depend on abstractions. If we have a class that depends on another class, we should not depend on the concrete implementation of that class. We should depend on an abstraction of that class. This principle is achieved by using interfaces and abstract classes.
+
+### Builder Pattern
+
+Having objects created with 10 or more initializer arguments is not productive. Instead, opt for piecewise construction. Builder provides an API for constructing an object step-by-step. It allows you to produce different types and representations of an object using the same construction code. When piecewise object construction is complicated, provide an API for doing it succinctly.       
+
+A builder is a separate component for building an object. It can either give builder an initializer or return it via static function. To make builder fluent, return self. Different facets of an object can be built with different builders working in tandem via a base class.
+
+### Factory Pattern
+
+Sometimes object creation logic becomes too convoluted. Initializers are not always descriptive, and they cannot be overloaded with same set of arguments with different names. Wholesale object creation (non-piecewise, unlike Builder) can be outsourced to a separate method (Factory Method) or something that may exist in a separate class (Factory). It is possible to create hierarchy of factories with Abstract Factory.
+
+A factory is a component responsible solely for the wholesale (not piecewise) creation of objects. It is essentially the implementation of idea of single responsibility principle or separation of concerns. In most cases a factory is just a separate class which is full of factory methods, not necessarily static ones that allow us to create objects. It can be external or reside inside the object as an inner class. Hierarchies of factories can be used to create related objects.
+
+### Abstract Factory Pattern
+
+Abstract Factory offers the interface for creating a family of related objects, without explicitly specifying their classes. It is a way to encapsulate a group of individual factories that have a common theme without specifying their concrete classes. If we have a hierarchy of types, then we can have a corresponding hierarchy of factories which creates those types.
+
+### Prototype Pattern
+
+An existing (partially or fully constructed) design is a Prototype. We make a copy (clone / deep copy) the prototype and customize it. We make the cloning convenient (e.g., via a Factory). So, a Prototype is a partially or fully initialized object that you copy (clone) and make use of.
+
+To implement a prototype, partially construct an object and store it somewhere. Deep copy the prototype and customize the result. A factory provides a convenient API for using prototypes.
+
+### Singleton Pattern
+
+For some components it only makes sense to have one in the system (e.g., database repository, object factory). Example, the constructor call is expensive, which should be done only once, and everyone should be provided with the same instance. We would want to prevent anyone creating additional copies. Need to take care of lazy instantiation and thread safety. All of this can be achieved by making the constructor private and creating a static creation method.
+
+Singleton is a component which is instantiated only once. It is achieved by making the constructor private. It is not a good idea to use singletons because they are essentially global variables. They are not testable and they make code tightly coupled. They are essentially a fancy way of creating global variables. Different realizations of Singleton: custom allocator, decorator, metaclass, monostate, etc.
+
+Monostate is a variation of the singleton where we put all the state of an object into a static variable, but at the same time we allow people to create new objects, thereby making new instances which all access the same state.
+
+### Adapter Pattern
+
+Adapter allows us to use an existing interface to be used from another interface. It often involves a wrapper with a conversion of interface. It is a construct which adapts an existing interface X to conform to the required interface Y. Implementing an Adapter is easy: determine the API you have and the API you need. Create a component which aggregates (has a reference to, ...) the adaptee. Intermediate representations can pile up: use caching and other optimizations.
+
+### Bridge Pattern
+
+Bridge prevents a 'Cartesian product' complexity explosion. Example: base class ThreadScheduler, derived classes: LinuxThreadScheduler, WindowsThreadScheduler, MacThreadScheduler, etc. We can have a base class ThreadScheduler and a base class ThreadSchedulerImpl. ThreadSchedulerImpl can have derived classes: LinuxThreadSchedulerImpl, WindowsThreadSchedulerImpl, MacThreadSchedulerImpl, etc. ThreadScheduler can have a reference to ThreadSchedulerImpl. This way we can avoid the 'Cartesian product' complexity explosion.
+
+Bridge is a mechanism that decouples an interface (hierarchy) from an implementation (hierarchy). It is useful when we have an interface and a different implementation. We can have a base class and a derived class. The base class can have a reference to the derived class. The idea of the bridge is to decouple abstraction from implementation. Both can exist as hierarchies, and there is a bridge between them which is a stronger form of encapsulation.
+
+### Composite Pattern
+
+The goal of the composite design pattern is to tread individual components and groups of objects in a uniform fashion, so to provide an identical interface over both aggregates of components as well as individual components. Objects use other objects' fields/properties/members through inheritance and composition. Some composed and singular objects need similar/ identical behaviors. Composition lets us make compound objects. Composite design pattern is used to treat both single (scalar) and composite objects uniformly. It is a mechanism for treating individual (scalar) objects and compositions of objects in a uniform manner. Python supports iteration with `__iter__` and the `Iterable` ABC. A single object can make itself iterable by yielding `self` from `__iter__`.
+
+### Decorator Pattern
+
+It exists so that we can add additional behaviors to particular classes without either modifying the classes themselves or indeed inheriting from them. Sometimes we want to augment an object with additional functionality but we don't want to rewrite / alter existing code. We want to keep new functionality separate (SRP). Need to be able to interact with existing structures. Two options: inherit from required object (if possible), or build a decorator which simply references the decorated objects. Decorator facilitates the addition of behaviors to individual objects without inheriting from them.      
+
+Decorators in Python are very useful for performing something around a function. A decorator keeps the reference to the decorated object(s). It adds utility attributes and methods to augment the object's features, and it may or may not forward calls to the underlying object. Proxying of underlying calls can be done dynamically.      
+
+### Facade Pattern
+
+It is the idea of exposing several components through a single easy to use interface. It provides a simple, easy to understand/user interface over a large and sophisticated body of code. It is usualy built to provide a simplified API over a set of classes. We also may wish to optionally expose the internals through the facade. It may allow users to 'escalate' to use more complex APIs if they need to. It is a higher-level (but simpler) interface that makes a subsystem easier to use.       
+
+### Flyweight Pattern
+
+It is a space optimization technique that lets us use less memory by storing externally the data associated with similar objects. We can specify an index or a reference into the external data store while storing this common data externally. We can also define the idea of 'ranges' on homogeneous collections and store data related to those ranges.      
+
+### Proxy Pattern
+
+Same interface, but entirely different behaviour - this is an example of communication proxy. Other proxy typews: logging, virtual, guarding, etc. Proxy is a class that functions as an interface to a particular resource. That resource may be remote, expensive to construct, or may require logging or some other added functionality. A proxy has the same interface as the underlying object. To create a proxy, simply replicate the existing interface of an object and add relevant functionality to the redefined member functions.      
+
+Protection proxy is a proxy class that controls access to a particular resource. Virtual proxy is a proxy that appears to be the underlying fully initialized object, but it is not. Actually, it is masquerading the underlying functionality and maybe it doesn't have the underlying functionality yet. Proxy provides an identical interface, while decorator provides an enhanced interface. Decorator typically aggregates (or has reference to) what it is decorating, proxy doesn't have to. Proxy might not even be working with a materialized object.       
+
+### Chain of Responsibility Pattern
+
+A chain of components who all get a chance to process a command or a query, optionally having default processing implementation and an ability to terminate the processing chain. It can be implemented as a chain of references or a centralized construct. We enlist objects in the chain, possibly controlling their order and also handle object removal from chain.
+
+Command Query Separation (CQS) is a principle which states that whenever we operate on objects, we separate all of the invocations into two different concepts which are called query and command. Command is something that you send when you're asking for an action or a change. Query is something that you send when you're asking for information. CQS is having separate means of sending commands and queries to an object (example: direct field access of a particular class).        
+
+### Command Pattern
+
+Ordinary statements are perishable, as we cannot undo member assignment and we cannot directly serialize a sequence of actions (calls). We want an object that represents an operation to perform a particular action. There are lots of uses for this: GUI commands, multi-level undo / redo, macro recording and more. Command is an object which represents an instruction to perform a particular action. It contains all the information necessary for the action to be taken.        
+
+We encapsulate all details of an operation in a separate object and define instruction for applying the command (either in the command itself or elsewhere). We can optionally define instructions for undoing the command. We can also create composite commands (a.k.a. macros).
+
+### Interpreter Pattern
+
+Textual input needs to be processed (example: turned into OOP structures). Turning strings into OOP based structures is a complicated process. Interpreter is a component that processes structured text data. It does so by turning it into separate lexical tokens (lexing) and then interpreting sequences of said tokens (parsing). It is used in compilers, interpreters and static analysis tools.        
+
+Lexing process basically has to split up an expression of some kind into a set of tokens. Barring simple cases, an interpreter acts in two stages. Lexing turns text into a set of tokens, example: `3*(4+5) -> Lit[3] Star Lparen Lit[4] Plus Lit[5] Rparen`. Parsing takes a stream of tokens and turns it into a meaningful program structure (AST). Example: `Lit[3] Star Lparen Lit[4] Plus Lit[5] Rparen -> MultExpr(Lit[3], AddExpr(Lit[4], Lit[5]))`. Parsed data can then be traversed.
+
+### Iterator Pattern
+
+Iteration (traversal) is a core functionality of various data structures. An iterator is a class that facilitates the traversal. It keeps a reference to the current element and has a method to advance to the next element. It is an object that facilitates the traversal of a data structure. The iterator protocol requires `__iter__()` method to expose the iterator, which uses `__next__()` to return each of the iterated elements or raise `StopIteration` when there are no more elements. Python supports iteration with `__iter__` and the `Iterable` ABC. A single object can make itself iterable by yielding `self` from `__iter__`. Stateful iterators cannot be recursive. `yield` allows for much more succinct iteration.          
+
+### Mediator Pattern
+
+It facilitates communication between different components. Components may go in and out of a system at any time, and it makes no sense for them to have direct references to one another. The solution is to have them all refer to some central component that facilitates communication. Mediator is a component that facilitates communication between other components without them necessarily being aware of each other or having direct (reference) access to each other. It is also known as the controller pattern.          
+
+Create the mediator and have each object in the system refer to it (example: in a property). Mediator engages in bidirectional communication with its connected components. Mediator has functions the components can call. Components have functions the mediator can call. Event processing (e.g., Rx) libraries make communication easier to implement.
+
+### Memento Pattern
+
+An object or system goes through several changes. There are different ways of navigating those changes. One way is to record every change (Command) and teach a command to "undo" itself. Another is to simply save snapshots of the system and restore to those snapshots later (Memento). Memento is a token / handle representing the system state. It lets us roll back to the state when the token was generated. May or may not directly expose state information.       
+
+Mementos are used to roll back states arbitrarily. A memento is simply a token / handle class with (typically) no functions of its own. A memento is not required to expose directly the state(s) to which it reverts the system. It can be used to implement undo / redo.
+
+### Observer Pattern
+
+Sometimes in our system we need to be informed when certain things happen (example: object's property changes, or an object does something, or some external event occurs). We want to listen to events and be notified when they occur, and these notifications should include useful data. We also want to unsubscribe from events if we are no longer interested. An observer is an object that wishes to be informed about events happening in the system. The entity generating the events is an observable.       
+
+Observer is an intrusive approach: an observable must provide an event to subscribe to. Subscription and unsubscription can be handled with addition / removal of items in a list. Property notifications are easy; dependent property notifications are tricky.
+
+### State Pattern
+
+Changes in state can be explicit or in response to an event (observer pattern). This is a pattern in which the object's behavior is determined by its state. An object transitions from one state to another (something needs to trigger a transition). A formalized construct which manages state and transitions is called a state machine.         
+
+Given sufficient complexity, it pays to formally define possible states and events/triggers. Can define: state entry/exit behaviors, action when a particular event causes a transition, guard conditions enabling/disabling a transition and default action when no transitions are found for an event.
+
+### Strategy Pattern
+
+Many algorithms can be decomposed into higher and lower level parts. Making tea can be decomposed into: the process of making a hot beverage (boil water, pour into cup); and making a specific drink (tea, coffee). The high-level algorithm can then be reused for making coffee or other drinks, supported by beverage-specific strategies. This pattern enables the exact behaviour of a system to be selected at run-time.        
+
+We define an algorithm at a high level. We define the interface we expect each strategy to follow. We provide for dynamic composition of strategies in the resulting object.
+
+### Template Method Pattern
+
+Algorithms can be decomposed into common parts + specifics. Strategy pattern does this through composition: high-level algorithm expects strategies to conform to an interface, and concrete implementations implement the interface. Template Method does the same thing through inheritance: overall algorithm is defined in base class which makes use of abstract members. Inheritors overrride the abstract members. Template method is invoked to get work done.          
+
+Template Method allows us to define the "skeleton" of the algorithm, with concrete implementations defined in subclasses. We define an algorithm at a high level in parent class and we define constituent parts as abstract methods / properties. We can then inherit the algorithm class, providing necessary overrides.
+
+### Visitor Pattern
+
+Sometimes we need to define a new operation on an entire class hierarchy, but we do not want to keep modifying every class in the hierarchy. We need access to the non-common aspects of classes in the hierarchy. So we can create an external component to handle rendering, but we want to avoid explicit type checks.         
+
+Visitor is a component that knows how to traverse a data structure composed of (possibly related) types. OOP double-dispatch approach is not necessary in Python. We can make a visitor, decorating each **overload** with `@visitor`, and call `visit()` and the entire structure gets traversed.
+
+## Credits & Attributions:
+
+- [Gang of Four Design Patterns](https://springframework.guru/gang-of-four-design-patterns/)
+- [Design Patterns for Humans](https://github.com/kamranahmedse/design-patterns-for-humans/)
+- [Design Patterns in Python - Udemy Course](https://www.udemy.com/course/design-patterns-python/)
+
