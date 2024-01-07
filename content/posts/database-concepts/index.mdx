@@ -247,6 +247,110 @@ A transaction is a logical unit of work that contains one or more SQL statements
 
 Schema migration files are used to make changes to the database schema. They are used to create, modify, or delete tables, indexes, views, etc. They are used to make changes to the database schema in a consistent and repeatable way that is safe and reversible, which can be used to keep track of changes over time. A schema migration file can be written in any programming language, and it contains 2 different sections: `up` and `down`. `up` section is used to make changes to the database schema, and `down` section is used to undo the changes made in the `up` section. Schema migration files are executed in the order in which they are created. They are executed in a transaction, which means that if any of the statements in the schema migration file fails, the entire schema migration file will be rolled back.
 
+### Multi-Version Concurrency Control (MVCC)
+
+Multi-Version Concurrency Control (MVCC) is a technique used by PostgreSQL to allow multiple transactions to access the same data concurrently without conflicts or delays. It ensures that each transaction has a consistent snapshot of the database and can operate on its own version of the data.
+
+#### How MVCC Works
+
+- When a transaction starts, it gets a unique transaction ID (TXID). This ID is later used to keep track of changes made by the transaction.
+- When a transaction reads data, it only sees the data that was committed before the transaction started, as well as any changes it made itself. This ensures that every transaction has a consistent view of the database.
+- Whenever a transaction modifies data (INSERT, UPDATE, or DELETE), PostgreSQL creates a new version of the affected rows and assigns the new version the same TXID as the transaction. These new versions are called "tuples".
+- Other transactions running at the same time will only see the old versions of the modified rows since their snapshots are still based on the earlier state of the data.
+- When a transaction is committed, PostgreSQL checks for conflicts (such as two transactions trying to modify the same row). If there are no conflicts, the changes are permanently applied to the database, and other transactions can now see the updated data.
+
+### Write Ahead Log (WAL)
+
+The Write Ahead Log is a technique where any modification to the data is first recorded in the log before being written into the main data storage. The primary purpose of the WAL is to guarantee that the database state is recoverable to a consistent state even in the event of a crash or hardware failure.
+
+#### How WAL Works
+
+- **Write operation:** When a change is made to the data, PostgreSQL writes the changes to the WAL buffer instead of immediately modifying the disk pages.
+- **Flush operation:** Once the transaction is committed, the WAL buffer contents are flushed to the on-disk WAL file.
+- **Checkpoint:** The background writer process writes the 'dirty' pages from the shared buffer to the main data files at specific intervals called 'checkpoints.' It ensures that the actual data files are updated to match the state recorded in the WAL logs.
+
+### Stages of Query Processing
+
+Query processing in PostgreSQL involves several stages, from parsing SQL queries to producing the final result set:
+
+- **Parsing**: This is the first stage in query processing, where the SQL query is broken down into smaller components and checked for any syntactical errors. The parser creates a parse tree, a data structure representing the different elements of the query.
+
+- **Rewriting**: At this stage, the parse tree might be modified to apply any necessary optimization or transformation. Examples include removing redundant conditions, simplifying expressions, expanding views, and applying security-related checks.
+
+- **Optimization**: This stage involves selecting the best execution plan from multiple alternatives. The query optimizer evaluates various strategies based on factors like the availability of indexes, the size of the tables, and the complexity of the conditions in the query. The cost of each plan is estimated, and the one with the lowest cost is chosen as the final plan.
+
+- **Plan Execution**: The selected execution plan is converted into a series of low-level operations, which are then executed by the executor. The executor retrieves or modifies the data as specified by the plan, executing the required joins, filtering, aggregations, and sorting steps.
+
+- **Returning Results**: After the successful execution of the plan, the final result set is sent back to the client application. This result set might be in the form of rows of data, a single value, or a confirmation message of completed operations.
+
+#### Key Components in Query Processing
+
+There are several key components of PostgreSQL's query processing engine:
+
+- **Parser**: The component responsible for breaking down SQL queries and creating parse trees.
+- **Optimizer**: The part of the system that evaluates and chooses the optimal execution plan for a given query.
+- **Executor**: The component that runs the selected execution plan, performing the required operations to retrieve or modify the data.
+- **Statistics Collector**: This component gathers essential information about the status of the database, including table sizes, distribution of the data, and access frequency. This information is used by the optimizer to make better decisions when choosing execution plans.
+
+### Row Level Security (RLS)
+
+Row Level Security (RLS) is a feature introduced in PostgreSQL 9.5 that allows us to control access to rows in a table based on a user or role's permissions. This level of granularity in data access provides an extra layer of security for protecting sensitive information from unauthorized access.
+
+To enable RLS, we need to set up policies for our table. A policy is a set of rules that define how users can read or modify table rows. First, enable RLS on the table using the `ALTER TABLE` command with the `FORCE ROW LEVEL SECURITY` option:
+
+```sql
+ALTER TABLE my_table FORCE ROW LEVEL SECURITY;
+```
+
+To create a policy, use the `CREATE POLICY` command with a `USING` clause that specifies the conditions for allowing access to a row. Here's an example of a policy that allows users to read rows only if the user's `id` is equal to the `user_id` column in the table:
+
+```sql
+CREATE POLICY my_policy ON my_table
+FOR SELECT
+USING (current_user_id() = user_id);
+```
+
+We can also create policies for modifying rows by specifying the `FOR` action as `INSERT`, `UPDATE`, or `DELETE`.
+
+### Data Partitioning and Sharding
+
+Data partitioning is a technique that divides a large table into smaller, more manageable pieces called partitions. Each partition is a smaller table that stores a subset of the data, usually based on specific criteria such as ranges, lists, or hashes. PostgreSQL supports different partitioning methods, such as:
+
+- **Range Partitioning:** The data in a range-partitioned table is separated into partitions based on a specified range of values for a given column. For example, orders could be partitioned by date range, with each partition containing orders within a specific date interval.
+
+- **List Partitioning:** The data in a list-partitioned table is separated into partitions based on specified discrete sets of values for a given column. For example, customers could be partitioned by their country, with each partition storing customers from a specific country.
+
+- **Hash Partitioning:** The data in a hash-partitioned table is divided into partitions using a hash function applied to one or more columns. This method distributes data uniformly across all partitions, which helps in load balancing and parallel query processing. For example, products could be hash partitioned based on the product ID.
+
+Sharding is a technique that splits a large dataset across multiple database instances or servers, called shards. Each shard is an independent and self-contained unit that holds a portion of the overall data, and shards can be distributed across different geographical locations or infrastructures. A horizontal fragment or shard of a relation is a subset of the tuples in that relation. The tuples that belong to the horizontal fragment can be specified by a condition on one or more attributes of the relation, or by some other mechanism. Often, only a single attribute in involved in the condition.
+
+In PostgreSQL environment, sharding can be achieved in different ways:
+
+- **Sharding at the application level:** The application defines the logic to decide which shard will store a specific data record. The application communicates directly with each shard for querying or modifying the data.
+
+- **Sharding using foreign data wrappers:** PostgreSQL provides a feature called foreign data wrappers (FDW) that allows a PostgreSQL server to access data stored in remote servers, treating them as local tables. By using this technique, the data can be sharded across multiple remote servers, and the local PostgreSQL instance acts as a coordinator for accessing these shards.
+
+- **Sharding using 3rd-party tools:** Several 3rd-party tools, such as Pgpool-II, Citus, and PLProxy, can be used for sharding purpose. These tools handle connection pooling, load balancing, and data distribution across multiple PostgreSQL instances. The choice of tools depends on the requirements, complexity, and the desired level of control over the sharding logic.
+
+### CAP Theorem
+
+**Consistency** means that the nodes will have the same copies of a replicated data item visible for various transactions. **Availability** means that each read or write request for a data item will either by processed successfully or will receive a message that the operation cannot be completed. **Partition Tolerance** means that the system can continue operating if the network connecting the nodes has a fault that results in two or more partitions, where the nodes in each partition can only communicate among each other. The **CAP Theorem** states that it is not possible to guarantee all three of the desirable properties - consistency, availability, and partition tolerance - at the same time in a distributed system with data replication. If this is the case, then the distributed system designer would have to choose two properties out of the three to guarantee.
+
+### Algorithms for SELECT Operation
+
+A number of search algorithms are possible for selecting records from a file, which are known as **file scans**, because they scan the records of a file to search for and retrieve records that satisfy a selection condition. If the search algorithms involves the use of an index, the index search is called an **index scan**. Different search algorithms:
+
+- S1 - Linear search (brute force algorithm)
+- S2 - Binary search (requires sorted data)
+- S3a - Using a primary index, S3b - Using a hash key
+- S4 - Using a primary index to retrieve multiple records
+- S5 - Using a clustering index to retrieve multiple records
+- S6 - Using a secondary (B+ tree) index on an equality comparison
+- S7a - Using a bitmap index, S7b - Using a functional index
+- S8 - Conjunctive selection using an individual index
+- S9 - Conjunctive selection using a composite index
+- S10 - Conjunctive selection by intersection of record pointers
+
 ## Credits & Attributions:
 
 - [Official Postgres Documentation](https://www.postgresql.org/docs/)
