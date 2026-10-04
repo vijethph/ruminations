@@ -1,0 +1,958 @@
+---
+title: "Consuming a private Python package in GitHub"
+date: 2026-10-04
+description: Different ways to install a private Python package from GitHub in CI/CD without personal access tokens, with setup steps and trade-offs.
+slug: "/consuming-private-python-package-in-github"
+tags:
+  - Python
+  - GitHub Actions
+  - Docker
+  - Security
+  - Packaging
+---
+
+A private Python package often lives in one GitHub repository, while an application in another repository depends on it. CI/CD must install that package without a personal access token (PAT). A PAT belongs to one person, expires, and needs manual rotation. This post describes four approaches that avoid PATs. Each approach section lists the setup steps, the Docker build changes, and the trade-offs.
+
+The post uses these names:
+
+- Producer: `acme/mylib`, the private package repository.
+- Consumer: `acme/myapp`, the application that depends on the package.
+- Package name: `mylib`, the distribution name of the package.
+
+## Assumptions
+
+The steps assume the following. The right column lists what changes if an assumption does not hold.
+
+| Assumption | If it does not hold |
+|---|---|
+| Both repositories belong to the same GitHub organization (`acme`) | Cross-organization access changes the App installation steps and the GHCR access-control steps |
+| The package is pure Python, with no compiled extensions | Compiled extensions need per-platform wheels, built with a tool such as `cibuildwheel` and a manylinux matrix |
+| The consumer builds a Docker image in CI and also runs tests directly on the runner | The Docker build sections do not apply, and only the runner steps remain |
+| Developers install `mylib` on their laptops, not only in CI | Without laptop installs, the wheelhouse image can cover the whole setup alone |
+| CI runs on GitHub-hosted runners | Self-hosted runners need the same access to GitHub and GHCR |
+| The producer repository tags each release with a git tag | The git-based approaches need a tag or a commit to pin |
+
+The workflows use action versions that were current in October 2026. The `astral-sh/setup-uv` action publishes immutable releases, so its pin uses the full version number.
+
+## Constraints that shape the options
+
+Three constraints remove or reshape some options before any setup starts.
+
+### GitHub App tokens do not work with GHCR or GitHub Packages
+
+A GitHub App can create an installation access token with the `packages: read` permission. The command `docker login ghcr.io` with this token appears to succeed. The next pull fails with `denied`.
+
+The same limit applies to `npm.pkg.github.com` and `maven.pkg.github.com`. It also applies to PyOCI, because PyOCI is a proxy in front of GHCR. Some registries return an explicit message. The message says that the credential type is not supported and names two accepted types: a personal access token or a GitHub Actions token.
+
+The GitHub documentation does not state this limit. An open issue in the docs repository tracks it.
+
+| Approach | App token works? | Credential to use instead |
+|---|---|---|
+| GitHub App token (git clone over HTTPS) | Yes. Git over HTTPS accepts installation tokens. | Not applicable |
+| SSH deploy key | Not applicable | Not applicable |
+| Wheels on GHCR with PyOCI | No | `GITHUB_TOKEN` with `packages: read`, plus a package-level repository grant |
+| Wheelhouse image from GHCR | No | Same as the PyOCI approach |
+
+As a result, one GitHub App cannot cover every approach. The PyOCI and wheelhouse approaches rely on the built-in `GITHUB_TOKEN` and on the per-package access control of GHCR.
+
+### No PATs and no long-lived secrets are different goals
+
+Removing PATs does not always remove stored secrets. The table shows which secret each approach stores in the consumer repository.
+
+| Approach | Long-lived secret in the consumer repository? |
+|---|---|
+| GitHub App token | Yes: the App private key. The App belongs to the organization and has a narrow scope. It does not depend on one person, and owners can revoke it. |
+| SSH deploy key | Yes: the private key. The key never expires and needs manual rotation. |
+| Wheels on GHCR with PyOCI | No. GitHub creates `GITHUB_TOKEN` for each job, and it expires with the job. |
+| Wheelhouse image | No. The same `GITHUB_TOKEN` rules apply. |
+
+The GitHub App token approach serves a team that wants to end the dependency on a PAT tied to one person. Only the PyOCI and wheelhouse approaches give a team zero long-lived credentials in CI.
+
+### Pip cannot scope an index to one package
+
+With `pip install --index-url=<private>`, every dependency resolves through that index, not only `mylib`. The PyOCI documentation states that public dependencies then fail to resolve. Adding the index with `--extra-index-url` instead opens a dependency-confusion risk.
+
+uv solves this with `explicit = true` and a `tool.uv.sources` mapping. Poetry solves it with package source constraints. Bare pip has no equivalent, so the PyOCI approach pairs with uv or Poetry.
+
+## Common setup for the producer repository
+
+All four approaches start from a package that builds into a wheel and carries a release tag.
+
+### Package layout and build
+
+`acme/mylib/pyproject.toml`:
+
+```toml
+[project]
+name = "mylib"
+version = "0.0.0"                 # stamped at release time
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.27", "pydantic>=2.7"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mylib"]
+```
+
+The repository layout:
+
+```
+acme/mylib/
+├── pyproject.toml
+├── src/mylib/__init__.py
+└── tests/
+```
+
+Make sure that the package builds and installs:
+
+```bash
+pip install build
+python -m build            # → dist/mylib-0.0.0-py3-none-any.whl  and  .tar.gz
+pip install dist/*.whl && python -c "import mylib; print(mylib.__file__)"
+```
+
+### Tags and version pins
+
+Create an annotated tag for each release:
+
+```bash
+git tag -a v1.2.3 -m "Release v1.2.3" && git push origin v1.2.3
+```
+
+The git-based approaches consume the tag. The PyOCI and wheelhouse approaches consume a built artifact from that tag. The table shows how the consumer pins each one.
+
+| Approach | Pin | Reproducible without a lockfile? |
+|---|---|---|
+| GitHub App token and SSH deploy key (git) | `tag = "v1.2.3"` or `rev = "<40-char sha>"` | Only with `rev` |
+| PyOCI (index) | `mylib==1.2.3` | Yes |
+| Wheelhouse (image) | `FROM ghcr.io/acme/mylib-wheels:v1.2.3` | Yes |
+
+Git tags are mutable, because anyone with write access can force-push a tag. A pin to `rev` fixes the exact commit. A committed lockfile gives the same result, because `uv.lock` records the resolved commit SHA.
+
+## Approaches
+
+The four approaches differ in where the credential lives and in what the consumer installs. Each section lists its own steps.
+
+### GitHub App token
+
+The workflow creates a short-lived token from an organization-owned GitHub App and uses it as the git credential.
+
+#### Create the GitHub App
+
+1. Open the organization Settings, then Developer settings, then GitHub Apps. Select "New GitHub App".
+2. Enter the name `acme-ci-package-reader`. Enter any homepage URL.
+3. Clear the "Active" box under Webhook.
+4. Under Repository permissions, set Contents to "Read-only". Leave all other permissions unset.
+5. Under "Where can this GitHub App be installed?", select "Only on this account".
+6. Select "Create GitHub App" and note the App ID.
+7. Select "Generate a private key". The browser downloads a `.pem` file.
+
+#### Install the App on the producer repository
+
+Open the App settings and select "Install App". Choose the organization, select "Only select repositories", then select `mylib`.
+
+Do not install the App on `myapp`. The App only grants read access to `mylib`. The `myapp` workflow creates the token with the App credentials, so `myapp` needs no installation.
+
+#### Store the credentials in the consumer repository
+
+```bash
+gh variable set CI_APP_ID          --repo acme/myapp --body "123456"
+gh secret   set CI_APP_PRIVATE_KEY --repo acme/myapp < acme-ci-package-reader.private-key.pem
+```
+
+Organization-level storage avoids repeating this step for each new consumer repository:
+
+```bash
+gh variable set CI_APP_ID          --org acme --visibility private --body "123456"
+gh secret   set CI_APP_PRIVATE_KEY --org acme --visibility private < ...pem
+```
+
+#### Declare the dependency without credentials
+
+`acme/myapp/pyproject.toml`:
+
+```toml
+[project]
+name = "myapp"
+dependencies = ["mylib>=1.2.3,<2.0.0"]
+
+[tool.uv.sources]
+mylib = { git = "https://github.com/acme/mylib.git", tag = "v1.2.3" }
+```
+
+The URL contains no token. A git configuration rewrite supplies the credential at install time. This keeps `pyproject.toml` and `uv.lock` free of secrets and safe to share.
+
+The Poetry equivalent:
+
+```toml
+[tool.poetry.dependencies]
+mylib = { git = "https://github.com/acme/mylib.git", tag = "v1.2.3" }
+```
+
+The plain pip equivalent in `requirements.txt`:
+
+```
+mylib @ git+https://github.com/acme/mylib.git@v1.2.3
+```
+
+#### Consumer workflow
+
+`.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id:       ${{ vars.CI_APP_ID }}
+          private-key:  ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner:        ${{ github.repository_owner }}
+          repositories: mylib          # scope the token to exactly one repo
+
+      - name: Authenticate git for github.com
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen
+      - run: uv run pytest
+
+      # Optional: revoke the token before the job ends
+      - name: Revoke token
+        if: always()
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh api --method DELETE /installation/token || true
+```
+
+Notes on the workflow:
+
+- `x-access-token` is the literal username that GitHub expects for installation tokens. The token goes in the password field.
+- Installation tokens expire after one hour by default. The action also revokes the token when the job ends.
+- With `repositories: mylib`, a leaked token grants read access to one repository only.
+
+#### Docker build
+
+A build argument appears in the image history, and `docker history` shows it. A BuildKit secret mount never writes to a layer, so the build uses a secret mount.
+
+`Dockerfile`:
+
+```dockerfile
+# syntax=docker/dockerfile:1.7
+FROM python:3.12-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+
+RUN --mount=type=secret,id=gh_token \
+    git config --global url."https://x-access-token:$(cat /run/secrets/gh_token)@github.com/".insteadOf "https://github.com/" \
+ && uv sync --frozen --no-dev --no-install-project \
+ && git config --global --unset-all url."https://x-access-token:$(cat /run/secrets/gh_token)@github.com/".insteadOf
+
+COPY . .
+RUN uv sync --frozen --no-dev
+
+FROM python:3.12-slim
+COPY --from=builder /app /app
+ENV PATH="/app/.venv/bin:$PATH"
+WORKDIR /app
+CMD ["python", "-m", "myapp"]
+```
+
+The workflow step passes the token as a secret:
+
+```yaml
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/acme/myapp:${{ github.sha }}
+          secrets: |
+            gh_token=${{ steps.app-token.outputs.token }}
+```
+
+The `git config --unset-all` line adds extra protection. The secret mount does not persist in the layer, but `~/.gitconfig` in the builder stage holds the token string until the command finishes. The multi-stage final image does not copy that file. The line still removes the token in case someone flattens the build.
+
+#### Local development
+
+Developers authenticate as themselves. The flow needs no App.
+
+```bash
+gh auth login                        # once
+gh auth setup-git                    # configures the git credential helper
+uv sync                              # git clone of mylib now uses the dev's GitHub identity
+```
+
+Local installs and CI use different credentials for the same dependency declaration. No shared secret leaves CI.
+
+#### Failure modes
+
+```bash
+gh workflow run ci.yml && gh run watch
+# Expect: uv sync resolves mylib from git; `uv pip show mylib` reports the tagged version.
+```
+
+| Error | Cause |
+|---|---|
+| `Repository not found` | The App is not installed on `mylib`, or the `repositories:` input names the wrong repository |
+| `could not read Username` | The `insteadOf` rewrite did not apply. Make sure that the URL in `pyproject.toml` is exactly `https://github.com/…` |
+| Works on the runner, fails in Docker | `git` is not installed in the builder image |
+
+### SSH deploy key
+
+A read-only SSH key pair attaches to the producer repository. The private key lives in the secrets of the consumer repository.
+
+#### Generate the key pair
+
+```bash
+ssh-keygen -t ed25519 -C "deploy-key: acme/myapp -> acme/mylib" \
+           -f ./mylib_deploy_key -N ""
+# → mylib_deploy_key (private), mylib_deploy_key.pub (public)
+```
+
+Put both repositories in the key comment. In eighteen months, the comment is the only record of what an unknown key does.
+
+#### Register the public key on the producer
+
+```bash
+gh repo deploy-key add ./mylib_deploy_key.pub \
+   --repo acme/mylib \
+   --title "myapp-ci (read-only)"
+# read-only is the default, so omit --allow-write
+```
+
+Alternatively, open `mylib`, then Settings, then Deploy keys, then "Add deploy key". Paste the public key. Leave "Allow write access" cleared.
+
+#### Store the private key in the consumer
+
+```bash
+gh secret set MYLIB_DEPLOY_KEY --repo acme/myapp < ./mylib_deploy_key
+shred -u ./mylib_deploy_key ./mylib_deploy_key.pub    # do not keep local copies
+```
+
+#### Declare the dependency
+
+`acme/myapp/pyproject.toml`:
+
+```toml
+[project]
+dependencies = ["mylib>=1.2.3,<2.0.0"]
+
+[tool.uv.sources]
+mylib = { git = "ssh://git@github.com/acme/mylib.git", tag = "v1.2.3" }
+```
+
+Use the `ssh://git@github.com/` form. Do not use `git@github.com:`, because uv and pip need a URL scheme.
+
+#### Consumer workflow
+
+The `webfactory/ssh-agent` action does not write the GitHub host keys to `known_hosts`. The workflow adds them with `ssh-keyscan`.
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Trust the GitHub host key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.MYLIB_DEPLOY_KEY }}
+
+      - uses: astral-sh/setup-uv@v10.0.1
+      - run: uv sync --frozen
+      - run: uv run pytest
+```
+
+A manual alternative avoids the third-party action. It replaces both the host key step and the agent step:
+
+```yaml
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.MYLIB_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+```
+
+Always add the host key with `ssh-keyscan`. Do not use `StrictHostKeyChecking=no`. That option turns the connection into an unauthenticated one, and security reviews flag it.
+
+Make sure that the key works before pip runs:
+
+```yaml
+      - run: ssh -T git@github.com || true   # expect: "Hi acme/mylib! You've successfully authenticated"
+```
+
+#### Docker build
+
+BuildKit has a mount that forwards an SSH agent. This mount replaces a mounted key file.
+
+`Dockerfile`:
+
+```dockerfile
+# syntax=docker/dockerfile:1.7
+FROM python:3.12-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p -m 0700 ~/.ssh \
+ && ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+
+RUN --mount=type=ssh uv sync --frozen --no-dev --no-install-project
+
+COPY . .
+RUN uv sync --frozen --no-dev
+```
+
+The local build command:
+
+```bash
+docker buildx build --ssh default -t myapp:dev .
+```
+
+The workflow steps:
+
+```yaml
+      - uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.MYLIB_DEPLOY_KEY }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/acme/myapp:${{ github.sha }}
+          ssh: default=${{ env.SSH_AUTH_SOCK }}
+```
+
+#### Constraints at scale
+
+| Constraint | Detail |
+|---|---|
+| Globally unique keys | GitHub accepts a public key as a deploy key on one repository only, across all of GitHub. One key cannot serve both `mylib` and `mylib2`. |
+| N × M sprawl | Three packages and five consumers need 15 key pairs. Each pair needs independent rotation. |
+| No expiry | Deploy keys never expire. Rotation is a manual task. |
+| No audit trail | Deploy key access appears as the key, not as a person or a service. Attribution is harder. |
+| Read-only is not enforced across the organization | Anyone who adds a key can select "Allow write access". Periodic audits catch this. |
+
+#### Rotate the key
+
+The commands below rotate a key without downtime. The old key and the new key are both valid until the last step deletes the old key.
+
+```bash
+# 1. Generate the replacement
+ssh-keygen -t ed25519 -C "deploy-key: acme/myapp -> acme/mylib (rotated YYYY-MM)" -f ./new_key -N ""
+# 2. Add it alongside the old one (both are valid simultaneously)
+gh repo deploy-key add ./new_key.pub --repo acme/mylib --title "myapp-ci (rotated YYYY-MM)"
+# 3. Swap the secret
+gh secret set MYLIB_DEPLOY_KEY --repo acme/myapp < ./new_key
+# 4. Run the consumer CI, confirm green
+# 5. Delete the old key
+gh repo deploy-key list --repo acme/mylib
+gh repo deploy-key delete <old-id> --repo acme/mylib
+```
+
+### Wheels on GHCR with PyOCI
+
+PyOCI is a proxy that makes an OCI registry behave like a PEP 503 simple index. GHCR stores the wheels as OCI artifacts. GitHub Packages controls access.
+
+#### Hosted or self-hosted
+
+A public instance runs at `https://pyoci.com`. It forwards the Basic auth credentials to the upstream registry. As a result, the `GITHUB_TOKEN` passes through a third party.
+
+Self-hosting removes that exposure. The container image is `ghcr.io/allexveldman/pyoci:latest`. The service is stateless, because GHCR holds the data. It speaks HTTP only, so a reverse proxy in front of it must terminate TLS.
+
+The public instance suits an evaluation in a sandbox organization. Production traffic can use a self-hosted instance instead.
+
+```bash
+# Quick local evaluation
+docker run --rm -p 8080:8080 ghcr.io/allexveldman/pyoci:latest
+```
+
+These environment variables matter most:
+
+| Variable | Use |
+|---|---|
+| `PORT` | Listen port, default `8080` |
+| `PYOCI_PATH` | Serve under a subpath, for example `/acme` |
+| `PYOCI_MAX_BODY` | Maximum upload size, default 50 MB |
+| `PYOCI_BEARER_USERNAME` | If set, PyOCI skips the token-auth exchange and uses the supplied password as the registry Bearer token. This suits CI. |
+| `OTLP_ENDPOINT` | Forward logs, traces, and metrics to a collector |
+
+The `/health` endpoint returns 200 when the service is up. It stays at `/health` regardless of `PYOCI_PATH`.
+
+#### Publish from the producer
+
+`acme/mylib/.github/workflows/publish.yml`:
+
+```yaml
+name: Publish package
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run: { type: boolean, default: true }
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # required: GITHUB_TOKEN gains GHCR write
+    env:
+      PYOCI_URL: https://pyoci.internal.acme.io     # or https://pyoci.com for evaluation
+      NAMESPACE: acme
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+
+      - name: Stamp version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python - "$VERSION" <<'PY'
+          import re, sys, pathlib
+          v = sys.argv[1]
+          p = pathlib.Path("pyproject.toml")
+          p.write_text(re.sub(r'(?m)^version\s*=\s*".*"$', f'version = "{v}"', p.read_text(), count=1))
+          PY
+          grep -m1 '^version' pyproject.toml
+
+      - name: Build
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+          ls -la dist
+
+      - name: Publish to PyOCI
+        if: ${{ !inputs.dry_run }}
+        env:
+          TWINE_USERNAME: ${{ github.actor }}
+          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          twine upload \
+            --repository-url "${PYOCI_URL}/ghcr.io/${NAMESPACE}/python/" \
+            dist/*
+```
+
+OCI allows nested paths such as `python/team1/mylib`. Python package names cannot contain a prefix. Append the path to the index URL (`…/ghcr.io/acme/python/`). The package still installs as plain `mylib`.
+
+A PyOCI label classifier makes GHCR show the source repository on the package page:
+
+```toml
+[project]
+classifiers = [
+  "PyOCI :: Label :: org.opencontainers.image.source :: https://github.com/acme/mylib",
+]
+```
+
+These classifiers are case-sensitive and not part of the standard. `twine check` warns about them. This warning is normal.
+
+#### Grant the consumer access to the package
+
+The `GITHUB_TOKEN` in a `myapp` workflow has access to `myapp` only. It has no inherent right to read a package that `mylib` owns. Each consumer repository needs an explicit grant.
+
+1. Open the organization, then Packages, then the `python/mylib` package.
+2. Open "Package settings".
+3. Under "Manage Actions access", select "Add repository".
+4. Select `acme/myapp` and set the role to Read.
+5. Repeat these steps for every consumer repository.
+
+Read the package visibility through the API:
+
+```bash
+gh api /orgs/acme/packages/container/python%2Fmylib --jq '.visibility'
+```
+
+#### Declare and scope the index
+
+`acme/myapp/pyproject.toml`:
+
+```toml
+[project]
+name = "myapp"
+dependencies = ["mylib>=1.2.3,<2.0.0", "fastapi>=0.115"]
+
+[[tool.uv.index]]
+name = "pyoci"
+url = "https://pyoci.internal.acme.io/ghcr.io/acme/python/"
+explicit = true          # only used for packages mapped below, which blocks dependency confusion
+
+[tool.uv.sources]
+mylib = { index = "pyoci" }
+```
+
+The setting `explicit = true` and the `tool.uv.sources` mapping make this safe. The package `fastapi` resolves from PyPI. uv requests only `mylib` from the private index. The `pyproject.toml` file must define each named index that `tool.uv.sources` references. CLI flags and environment variables do not register them.
+
+The Poetry equivalent:
+
+```toml
+[[tool.poetry.source]]
+name = "pyoci"
+url = "https://pyoci.internal.acme.io/ghcr.io/acme/python/"
+priority = "explicit"
+
+[tool.poetry.dependencies]
+mylib = { version = "^1.2.3", source = "pyoci" }
+```
+
+#### Consumer workflow
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read          # GITHUB_TOKEN gains GHCR read. App tokens do not work here
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+
+      - run: uv sync --frozen
+        env:
+          # Index name "pyoci" → UV_INDEX_PYOCI_{USERNAME,PASSWORD}
+          UV_INDEX_PYOCI_USERNAME: ${{ github.actor }}
+          UV_INDEX_PYOCI_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: uv run pytest
+```
+
+uv builds the variable name from the index name. It uppercases the name and replaces hyphens with underscores. An index named `acme-private` becomes `UV_INDEX_ACME_PRIVATE_USERNAME` and `UV_INDEX_ACME_PRIVATE_PASSWORD`.
+
+If the PyOCI instance sets `PYOCI_BEARER_USERNAME="__token__"`, use `__token__` as the username and the token as the password. PyOCI then passes the token through as a Bearer token. This removes one exchange step in CI.
+
+#### Docker build
+
+The build passes the token as a BuildKit secret.
+
+```dockerfile
+# syntax=docker/dockerfile:1.7
+FROM python:3.12-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+
+RUN --mount=type=secret,id=pyoci_pw \
+    UV_INDEX_PYOCI_USERNAME=ci \
+    UV_INDEX_PYOCI_PASSWORD="$(cat /run/secrets/pyoci_pw)" \
+    uv sync --frozen --no-dev --no-install-project
+
+COPY . .
+RUN uv sync --frozen --no-dev
+```
+
+```yaml
+      - uses: docker/build-push-action@v7
+        with:
+          secrets: |
+            pyoci_pw=${{ secrets.GITHUB_TOKEN }}
+```
+
+#### Local development
+
+Developers need a credential with the `read:packages` scope. The OAuth token of the GitHub CLI avoids a stored PAT.
+
+```bash
+gh auth refresh -h github.com -s read:packages      # one-time scope upgrade
+export UV_INDEX_PYOCI_USERNAME="$(gh api /user --jq .login)"
+export UV_INDEX_PYOCI_PASSWORD="$(gh auth token)"
+uv sync
+```
+
+These commands fit in a `direnv` `.envrc` file or in a `make setup` target. The `gh` tool manages and refreshes the token, so no secret sits in a dotfile.
+
+#### Other behavior
+
+- Uploads are immutable. PyOCI refuses an upload when the name, version, and architecture already exist. Delete the existing file first to replace it. Immutability protects released versions by default.
+- Deletion uses `DELETE /<registry>/<namespace>/<package-name>/<filename>`. The registry must support content management. The GHCR UI and API also delete versions.
+- PyOCI caps the version list. `PYOCI_MAX_VERSIONS` defaults to 100, in reverse alphabetical order. Set it to `0` for an unlimited list.
+
+### Pre-baked dependencies in a Docker image
+
+The producer publishes the package inside a Docker image. The consumer pulls that image during the build. Two variants exist.
+
+#### Full base image
+
+The producer publishes `ghcr.io/acme/mylib-base:1.2.3` with `mylib` and its dependencies already installed. The consumer starts with `FROM ghcr.io/acme/mylib-base:1.2.3`.
+
+This variant ties the Python version, the base distribution, and the dependency resolution of the consumer to those of the library. Two consumers that need different Python versions need two base images. A dependency conflict appears as a base image rebuild instead of a constraint change.
+
+#### Wheelhouse image
+
+The producer publishes an image that contains only wheels, with nothing installed. The consumer copies the wheels and installs them offline. The build needs no authentication beyond the registry pull, no index, and no git.
+
+##### Build the wheelhouse
+
+`acme/mylib/Dockerfile.wheelhouse`:
+
+```dockerfile
+FROM python:3.12-slim AS build
+WORKDIR /src
+COPY . .
+RUN pip install --no-cache-dir build \
+ && python -m build --wheel --outdir /wheels
+
+# Scratch image: just the wheels, a few KB
+FROM scratch
+COPY --from=build /wheels /wheels
+```
+
+`acme/mylib/.github/workflows/wheelhouse.yml`:
+
+```yaml
+name: Publish wheelhouse
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  wheelhouse:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Stamp version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i -E "s|^version = \".*\"|version = \"${VERSION}\"|" pyproject.toml
+
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.wheelhouse
+          push: true
+          tags: |
+            ghcr.io/acme/mylib-wheels:${{ github.ref_name }}
+            ghcr.io/acme/mylib-wheels:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/acme/mylib
+```
+
+Grant `acme/myapp` read access to the `mylib-wheels` package. The steps match those under Grant the consumer access to the package in the PyOCI section.
+
+##### Copy and install in the consumer
+
+```dockerfile
+# syntax=docker/dockerfile:1.7
+ARG MYLIB_VERSION=v1.2.3
+FROM ghcr.io/acme/mylib-wheels:${MYLIB_VERSION} AS wheels
+
+FROM python:3.12-slim AS builder
+COPY --from=wheels /wheels /wheels
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+      --find-links=/wheels \
+      -r requirements.txt \
+ && rm -rf /wheels
+COPY . .
+```
+
+The file `requirements.txt` contains `mylib==1.2.3` next to the public dependencies. pip finds `mylib` in `/wheels` and the other packages on PyPI. The build sets no `--index-url` override, so public dependencies keep resolving.
+
+pip also searches PyPI for `mylib`. If a public package with the same name exists, pip can pick it. Exact pins with `--require-hashes` prevent that choice. The option `--no-index --find-links=/wheels` prevents it too, when the image vendors every dependency. That option also gives fully air-gapped builds.
+
+##### Consumer workflow
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read        # for the FROM pull of mylib-wheels
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/acme/myapp:${{ github.sha }}
+          build-args: |
+            MYLIB_VERSION=v1.2.3
+```
+
+##### Coverage outside Docker builds
+
+The wheelhouse image covers the Docker build only. Jobs such as `pytest`, `ruff`, and `mypy` run on the runner and still need `mylib`. Developer laptops need it too. Three options exist:
+
+- Pair the wheelhouse image with the GitHub App token or PyOCI approach for the non-Docker paths.
+- Run the test job inside the built image (`docker run myapp:ci pytest`). This gives one install path and slower feedback.
+- Extract the wheels on the runner, as in the next step.
+
+```yaml
+      - name: Fetch wheels from the wheelhouse image
+        run: |
+          docker create --name wh ghcr.io/acme/mylib-wheels:v1.2.3
+          docker cp wh:/wheels ./wheels
+          docker rm wh
+      - run: pip install --find-links=./wheels -r requirements.txt
+```
+
+The wheelhouse image works as a build accelerator on top of another approach. It also works alone when only Docker builds consume the package.
+
+## Comparison
+
+| | GitHub App token | SSH deploy key | PyOCI on GHCR | Wheelhouse image |
+|---|---|---|---|---|
+| Long-lived secret stored | App private key | SSH private key | None | None |
+| Credential lifetime in CI | 1 hour | No expiry | Job lifetime | Job lifetime |
+| App tokens work on GHCR | Not applicable | Not applicable | No (uses `GITHUB_TOKEN`) | No (uses `GITHUB_TOKEN`) |
+| Ships built artifacts | No (source) | No (source) | Yes | Yes |
+| Covers non-Docker CI jobs | Yes | Yes | Yes | No |
+| Local development | Excellent (`gh auth`) | Poor (shared key) | Good (`gh auth token`) | Poor |
+| Dependency-confusion risk | None | None | Low with uv, high with bare pip | Low with hash pins or `--no-index` |
+| Scales to many packages and consumers | Good | Poor (key sprawl) | Excellent | Good |
+| Third-party dependency | None | None | PyOCI (self-hostable) | None |
+| Install speed | Slow (git clone and build) | Slow (git clone and build) | Fast (wheel) | Fastest (local file) |
+| Audit trail | Good (App in the audit log) | Poor | Good | Good |
+| Setup effort | Low | Lowest | Medium (self-hosting) | Medium |
+| Rotation burden | One App key | Per key, manual | None | None |
+
+## Choosing an approach
+
+Each approach fits a different set of priorities. The table lists the situations in which each one fits and its main trade-off.
+
+| Approach | Fits when | Main trade-off |
+|---|---|---|
+| GitHub App token | The goal is to end the dependency on a personal PAT with the least new infrastructure | Installs from source, and the App private key is a stored secret |
+| SSH deploy key | Fast setup matters most and few packages exist | Keys never expire, and rotation work grows with packages × consumers |
+| PyOCI on GHCR | The package ships as a wheel, consumers need version ranges, or CI must hold no long-lived secret | Needs a PyOCI instance and uv or Poetry |
+| Wheelhouse image | Docker build time matters, or only Docker builds consume the package | Covers Docker builds only |
+
+Version ranges such as `>=1.2,<2.0` effectively need a real package index. The git-based approaches pin exact tags instead. A package with compiled extensions needs per-platform wheels, so the wheel-based approaches fit it better than the git-based approaches.
+
+Teams can combine approaches. The wheelhouse image covers Docker builds, and the GitHub App token or PyOCI approach covers runner jobs and laptops.
+
+## Keeping credentials out of images
+
+These practices apply to every approach.
+
+| Use | Avoid |
+|---|---|
+| `RUN --mount=type=secret,id=…` | `ARG TOKEN` or `ENV TOKEN` |
+| `RUN --mount=type=ssh` | `COPY id_ed25519 /root/.ssh/` |
+| Multi-stage builds where the final stage copies only the virtual environment | Single-stage builds |
+| `echo "::add-mask::$VALUE"` for any value computed at runtime | Printing tokens for debugging |
+| `ssh-keyscan` into `known_hosts` | `StrictHostKeyChecking=no` |
+| A `permissions:` block for each job, with least privilege | Repository-wide write defaults |
+
+A scanner in CI enforces these rules:
+
+```yaml
+      - name: Scan image for secrets
+        run: |
+          docker save myapp:ci -o /tmp/img.tar
+          docker run --rm -v /tmp:/scan aquasec/trivy:latest \
+            image --input /scan/img.tar --scanners secret --exit-code 1
+```
+
+## Automating dependency updates
+
+Each approach needs a way to tell `myapp` that `mylib` 1.2.4 exists.
+
+| Approach | Renovate and Dependabot support |
+|---|---|
+| Git tag (GitHub App token, SSH deploy key) | Renovate tracks git tags natively. Dependabot support for private git dependencies is weak. |
+| PyOCI | Renovate treats PyOCI as a PyPI index. It needs a `hostRule` with `hostType: "pypi"`. |
+| Wheelhouse image | Renovate tracks the Docker tag in `FROM` and in `build-args`. |
+
+For Renovate with PyOCI, a self-hosted Renovate workflow with `packages: read` can pass `GITHUB_TOKEN` as the host rule password. This avoids encrypted secrets in `renovate.json`. App tokens do not work for the package read.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `docker login ghcr.io` succeeds, pull says `denied` | An App installation token is in use against GHCR | Use `GITHUB_TOKEN` with `packages: read` |
+| `401 … This credential type is not supported for registry` | The same cause, on npm-style and Maven-style registries | The same fix |
+| `403` from GHCR with `GITHUB_TOKEN` | The consumer repository has no package access | Package settings → Manage Actions access → add the repository |
+| `could not read Username for 'https://github.com'` | The `insteadOf` rewrite did not match the URL | Make the URL in `pyproject.toml` exactly `https://github.com/…` |
+| `Permission denied (publickey)` in Docker only | `--ssh default` is missing, or `openssh-client` is missing | Add both |
+| `Host key verification failed` | `known_hosts` has no GitHub entry | `ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts` |
+| Public dependencies fail to resolve with PyOCI | `--index-url` replaced PyPI entirely | In uv, use `explicit = true` with `tool.uv.sources`. In Poetry, use `priority = "explicit"`. |
+| uv ignores the named index | The `pyproject.toml` file does not define the index | Define each named index that `tool.uv.sources` uses in `pyproject.toml` |
+| `uv sync` installs a stale `mylib` | A cached git dependency | `uv sync --refresh`, or pin `rev` |
+| Upload rejected because the version exists | PyOCI uploads are immutable | Bump the version. Delete the old file only if no consumer installed it. |
+| Deploy key rejected as already in use | Keys are globally unique per repository | Generate a fresh key pair for each producer repository |
+| Works in CI, fails locally | The README does not describe the developer setup | Document the local development steps of the chosen approach in the README. Test them on a fresh machine. |
+
+## References
+
+- [PyOCI](https://github.com/AllexVeldman/pyoci)
+- [PyOCI examples](https://github.com/AllexVeldman/pyoci/tree/main/docs/examples)
+- [GHCR and App installation tokens: known limitation (community discussion)](https://github.com/orgs/community/discussions/171423)
+- [GitHub Packages and GitHub Apps (community discussion)](https://github.com/orgs/community/discussions/26920)
+- [Docs issue that tracks the missing documentation](https://github.com/github/docs/issues/9547)
+- [Ensuring workflow access to your package](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)
+- [actions/create-github-app-token](https://github.com/actions/create-github-app-token)
+- [Managing deploy keys](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys)
+- [webfactory/ssh-agent](https://github.com/webfactory/ssh-agent)
+- [uv: package indexes](https://docs.astral.sh/uv/concepts/indexes/)
+- [uv: alternative indexes and authentication](https://docs.astral.sh/uv/guides/integration/alternative-indexes)
+- [uv: dependency sources (git, index)](https://docs.astral.sh/uv/concepts/projects/dependencies)
+- [Poetry: package source constraints](https://python-poetry.org/docs/repositories/#package-source-constraint)
+- [Dockerfile secret mounts](https://docs.docker.com/reference/dockerfile/#run---mounttypesecret)
+- [Dockerfile SSH mounts](https://docs.docker.com/reference/dockerfile/#run---mounttypessh)
