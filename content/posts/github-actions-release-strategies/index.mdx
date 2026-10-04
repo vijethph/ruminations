@@ -1,0 +1,1195 @@
+---
+title: "Comparing release strategies with GitHub Actions"
+date: 2025-12-04
+description: Versioning, tagging, and release automation for a Python service that ships as a Docker image and a Helm chart
+slug: "/github-actions-release-strategies"
+tags:
+  - DevOps
+  - GitHub Actions
+  - Release engineering
+  - Helm
+  - SemVer
+---
+
+This post describes release strategies for a Python service that ships as a Docker image and a Helm chart. The Helm chart is consumed by a separate umbrella chart. The examples cover versioning, tagging, publication, release automation, repository settings, and common failure cases.
+
+## Context and assumptions
+
+These assumptions define several details in the example workflows.
+
+| Assumption | Impact if wrong |
+|---|---|
+| Default branch is `main`, PRs are squash-merged (one commit per PR) | Merge commits break commit-message-based bumping; PR-label-driven bumping is an alternative (see PR label driven releases) |
+| Layout: `Dockerfile` (root or `docker/`), chart at `helm/<chart-name>/`, Python metadata in `pyproject.toml` | Path filters and `charts_dir` inputs change |
+| Registry is GHCR (`ghcr.io`) for both the image and the chart (OCI) | Equivalent login and push steps are required for ECR, Artifactory, or Harbor |
+| Umbrella chart lives in a separate repo and pulls this chart as a `dependencies:` entry | A subtree-based vendor model needs a PR-raising step instead of a registry push |
+| Exactly one chart lives in this repo | Multiple charts favor release-please's manifest mode or chart-releaser |
+| Major bumps only happen through the manual release, never automatically | The automatic path requires `BREAKING CHANGE` detection when major bumps are automatic |
+| The org allows creating a GitHub App or a fine-grained PAT | Without it, tag pushes can't trigger downstream workflows (see Repository settings and tokens) |
+
+## Versioning model
+
+The versioning model affects every release workflow, so it is defined before the YAML examples.
+
+### Versioned artifacts
+
+| Artefact | Version field | Consumed by |
+|---|---|---|
+| Python application | `pyproject.toml` `version`, git tag | Developers, GitHub Releases |
+| Container image | Image tag in the registry | The Helm chart |
+| Helm chart | `Chart.yaml` `version` (chart) and `appVersion` (app) | The umbrella chart |
+
+The `version` field in `Chart.yaml` is the chart packaging version. The `appVersion` field identifies the application version. Helm requires `version` to use valid SemVer.
+
+### Version coupling
+
+Lockstep versioning uses `chart.version == chart.appVersion == app version == git tag`. One version then represents the application, image, chart, and Git tag. A values-only chart change also requires an application version bump.
+
+Independent chart versioning changes the chart version when `helm/**` changes, while `appVersion` tracks the application. This separates chart history from application-only changes. It also requires separate version calculations and tag namespaces, such as `v1.4.0` and `chart-v0.9.2`.
+
+Lockstep versioning provides the simpler model when one version is sufficient. Independent chart versioning fits repositories where chart changes need a separate history or release cadence. The Helm chart versioning and umbrella charts section describes the independent model.
+
+### Release candidates and GA
+
+"Every merge to main gets a tag, releases are cut manually" maps cleanly onto a two-tier model:
+
+```
+PR merged to main   →  v1.4.0-rc.1   (pre-release tag, image + chart pushed, not "released")
+PR merged to main   →  v1.4.1-rc.1
+PR merged to main   →  v1.5.0-rc.1
+manual release      →  v1.5.0        (GA tag, GitHub Release, chart published for umbrella)
+```
+
+Pre-release suffixes matter because Helm uses SemVer constraint matching through Masterminds/semver. Constraints exclude pre-release versions unless the constraint also includes a pre-release. An umbrella chart with `version: "~1.5.0"` therefore does not resolve to `1.5.1-rc.3`. This creates a boundary where main can publish candidates while GA versions remain available to the umbrella chart.
+
+A single-track model is another option. Main merges produce plain `v1.4.0` and `v1.4.1`. The manual release promotes an existing version by creating the GitHub Release and marking the chart as `latest`. It also notifies the umbrella repository. This model is simpler, but every main merge becomes visible to the umbrella chart.
+
+### Tag and artifact naming
+
+| Thing | Convention | Example |
+|---|---|---|
+| App/GA git tag | `v<MAJOR>.<MINOR>.<PATCH>` | `v1.5.0` |
+| Candidate git tag | `v<M>.<m>.<p>-rc.<N>` | `v1.5.0-rc.3` |
+| Chart-only tag (independent option) | `chart-v<M>.<m>.<p>` | `chart-v0.9.2` |
+| Image (GA) | `ghcr.io/<org>/<repo>:1.5.0`, plus `:1.5`, `:1`, `:latest` | |
+| Image (candidate) | `ghcr.io/<org>/<repo>:1.5.0-rc.3`, plus `:main`, `:sha-<short>` | |
+| Chart (OCI) | `oci://ghcr.io/<org>/charts/<chart-name>:1.5.0` | |
+
+An immutable `sha-<short>` image tag provides a stable reference to the built image. It is useful when an exact image digest is needed during an incident.
+
+## Chart and image version alignment
+
+The chart can keep the image version aligned by defaulting the image tag to the chart's `appVersion`:
+
+```yaml
+# helm/myapp/values.yaml
+image:
+  repository: ghcr.io/<org>/<repo>
+  tag: ""          # empty → falls back to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+```
+
+```yaml
+# helm/myapp/templates/deployment.yaml (excerpt)
+image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+```
+
+### Action versions used in this guide
+
+These action versions are pinned to the latest majors used when the post was written. Repositories that require immutable action references can use commit SHAs and retain a `# vX.Y.Z` comment for Dependabot updates.
+
+```
+actions/checkout@v7
+actions/setup-python@v6
+actions/create-github-app-token@v3
+docker/login-action@v4
+docker/metadata-action@v6
+docker/setup-buildx-action@v3
+docker/build-push-action@v7
+azure/setup-helm@v5
+googleapis/release-please-action@v5
+python-semantic-release/python-semantic-release@v10.6.1
+helm/chart-releaser-action@v1.7.0
+amannn/action-semantic-pull-request@v6
+```
+
+## Release bump signals
+
+Each approach needs a release bump signal that maps a change to a major, minor, or patch version.
+
+| Signal | Mechanism | Pros | Cons |
+|---|---|---|---|
+| Conventional Commits | `feat:` → minor, `fix:`/`perf:`/`refactor:` → patch | Machine-readable history, free changelogs, industry standard | Requires discipline. With squash merges, the PR title becomes the commit, so PR title linting is useful |
+| PR labels | `release:minor`, `release:patch`, `release:none` | No commit-message format requirement; visible and editable in the PR UI | Labels can be forgotten. They do not provide a changelog, and their state is not in git history |
+| Manual input | `workflow_dispatch` with a `bump` choice | Total control | Does not tag every merge |
+
+Conventional Commits work well with squash merges and PR title linting. A release label can also act as an override. For example, `release:major` can request a major bump without a `BREAKING CHANGE` footer.
+
+### PR title linting
+
+PR title linting establishes the Conventional Commit input used by the approaches that depend on commit messages.
+
+`.github/workflows/pr-title-lint.yml`
+
+```yaml
+name: PR title lint
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            test
+            build
+            ci
+            chore
+            revert
+          scopes: |
+            app
+            api
+            helm
+            docker
+            deps
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" must start with a lowercase character.
+```
+
+The squash-merge setting can use "Pull request title" as the default commit message. The resulting commit then matches the title that passed the lint check.
+
+## Release approaches
+
+The following approaches turn the bump signal into a tag, a built image, and a published chart. They differ mainly in the release trigger and the component that owns the version.
+
+### Scripted auto-tagging with Conventional Commits
+
+This approach keeps the release logic in the repository. It has no external release engine and supports custom two-tier release policies.
+
+#### Version calculator
+
+`scripts/next-version.sh`
+
+```bash
+#!/usr/bin/env bash
+# Computes the next version from git history.
+# Outputs KEY=VALUE lines suitable for $GITHUB_OUTPUT.
+#
+# Usage: next-version.sh [--mode auto|major|minor|patch] [--channel rc|ga]
+set -euo pipefail
+
+MODE="auto"
+CHANNEL="rc"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mode)    MODE="$2"; shift 2 ;;
+    --channel) CHANNEL="$2"; shift 2 ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+# Latest GA tag (pre-releases excluded by the match pattern + sort).
+LAST_GA=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
+          | grep -Ev '\-' \
+          | sort -V | tail -n1 || true)
+LAST_GA="${LAST_GA:-v0.0.0}"
+BASE="${LAST_GA#v}"
+IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+
+# Commits since the last GA tag.
+if git rev-parse "$LAST_GA" >/dev/null 2>&1; then
+  RANGE="${LAST_GA}..HEAD"
+else
+  RANGE="HEAD"
+fi
+SUBJECTS=$(git log --format='%s' "$RANGE")
+BODIES=$(git log --format='%b' "$RANGE")
+
+HAS_BREAKING=false
+HAS_FEAT=false
+HAS_FIX=false
+grep -qE '^[a-z]+(\([^)]*\))?!:' <<<"$SUBJECTS" && HAS_BREAKING=true
+grep -qE '^BREAKING[ -]CHANGE:' <<<"$BODIES"    && HAS_BREAKING=true
+grep -qE '^feat(\([^)]*\))?!?:' <<<"$SUBJECTS"   && HAS_FEAT=true
+grep -qE '^(fix|perf|refactor|revert)(\([^)]*\))?!?:' <<<"$SUBJECTS" && HAS_FIX=true
+
+case "$MODE" in
+  major) BUMP=major ;;
+  minor) BUMP=minor ;;
+  patch) BUMP=patch ;;
+  auto)
+    if $HAS_BREAKING; then
+      # Policy: majors are cut manually. Flag loudly, bump minor.
+      echo "::warning::Breaking change detected since ${LAST_GA}. Auto path will bump MINOR; cut the major via release-manual.yml."
+      BUMP=minor
+    elif $HAS_FEAT; then BUMP=minor
+    elif $HAS_FIX;  then BUMP=patch
+    else                 BUMP=patch
+    fi ;;
+esac
+
+case "$BUMP" in
+  major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
+  minor) MINOR=$((MINOR+1)); PATCH=0 ;;
+  patch) PATCH=$((PATCH+1)) ;;
+esac
+TARGET="${MAJOR}.${MINOR}.${PATCH}"
+
+if [[ "$CHANNEL" == "rc" ]]; then
+  # Next rc number for this target version.
+  N=$(git tag --list "v${TARGET}-rc.*" | sed -E 's/.*-rc\.([0-9]+)$/\1/' | sort -n | tail -n1)
+  N=$(( ${N:-0} + 1 ))
+  VERSION="${TARGET}-rc.${N}"
+else
+  VERSION="${TARGET}"
+fi
+
+{
+  echo "last-ga=${LAST_GA}"
+  echo "bump=${BUMP}"
+  echo "version=${VERSION}"
+  echo "tag=v${VERSION}"
+  echo "target=${TARGET}"
+  echo "breaking=${HAS_BREAKING}"
+} | tee -a "${GITHUB_OUTPUT:-/dev/stdout}"
+```
+
+Local validation can check the script before it runs in CI:
+
+```bash
+chmod +x scripts/next-version.sh
+git fetch --tags
+./scripts/next-version.sh --mode auto --channel rc
+./scripts/next-version.sh --mode minor --channel ga
+```
+
+#### Version stamper
+
+`scripts/set-versions.sh`
+
+```bash
+#!/usr/bin/env bash
+# Writes the resolved version into pyproject.toml and Chart.yaml.
+# Usage: set-versions.sh <app-version> [chart-version]
+set -euo pipefail
+
+APP_VERSION="$1"
+CHART_VERSION="${2:-$1}"
+CHART_FILE="helm/myapp/Chart.yaml"
+
+python - "$APP_VERSION" <<'PY'
+import re, sys, pathlib
+v = sys.argv[1]
+p = pathlib.Path("pyproject.toml")
+s = p.read_text()
+s = re.sub(r'(?m)^version\s*=\s*".*"$', f'version = "{v}"', s, count=1)
+p.write_text(s)
+PY
+
+# Chart.yaml: `version` must be SemVer; `appVersion` is a free-form string.
+sed -i -E "s|^version:.*|version: ${CHART_VERSION}|"        "$CHART_FILE"
+sed -i -E "s|^appVersion:.*|appVersion: \"${APP_VERSION}\"|" "$CHART_FILE"
+
+echo "--- pyproject.toml ---"; grep -m1 '^version' pyproject.toml
+echo "--- ${CHART_FILE} ---";  grep -E '^(version|appVersion):' "$CHART_FILE"
+```
+
+The scripts stamp versions in the build workspace and do not commit them back to `main`. This keeps `main` free of `chore(release): bump version` commits and avoids a release loop. The Git tag remains the source of truth. Repository files can stay at a placeholder such as `0.0.0`. A release PR model can commit the version bump when the repository itself must record the released version.
+
+#### Scripted auto-tagging workflow
+
+`.github/workflows/release-a-autotag.yml`
+
+```yaml
+name: "Release A — auto tag on main"
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Compute the version but do not tag or push artefacts"
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false      # never cancel a release mid-flight
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.calc.outputs.version }}
+      tag:     ${{ steps.calc.outputs.tag }}
+      bump:    ${{ steps.calc.outputs.bump }}
+      dry_run: ${{ steps.flags.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # required: full history + tags
+          fetch-tags: true
+
+      - id: flags
+        run: echo "dry_run=${{ inputs.dry_run == true }}" >> "$GITHUB_OUTPUT"
+
+      - id: calc
+        run: ./scripts/next-version.sh --mode auto --channel rc
+
+      - name: Summary
+        run: |
+          {
+            echo "### Candidate \`${{ steps.calc.outputs.tag }}\`"
+            echo ""
+            echo "| field | value |"
+            echo "|---|---|"
+            echo "| previous GA | ${{ steps.calc.outputs.last-ga }} |"
+            echo "| bump | ${{ steps.calc.outputs.bump }} |"
+            echo "| breaking detected | ${{ steps.calc.outputs.breaking }} |"
+            echo "| dry run | ${{ steps.flags.outputs.dry_run }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  tag:
+    needs: version
+    if: needs.version.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write             # push tags, create releases
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      - name: Create annotated tag
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release candidate $TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --prerelease \
+            --generate-notes
+
+  image:
+    needs: [version, tag]
+    if: always() && needs.version.result == 'success'
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      push:    ${{ needs.version.outputs.dry_run != 'true' }}
+      latest:  false
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+  chart:
+    needs: [version, image]
+    uses: ./.github/workflows/_package-chart.yml
+    with:
+      chart_version: ${{ needs.version.outputs.version }}
+      app_version:   ${{ needs.version.outputs.version }}
+      push:          ${{ needs.version.outputs.dry_run != 'true' }}
+    permissions:
+      contents: read
+      packages: write
+```
+
+### release-please release PRs
+
+Google's release automation keeps a release PR open for accumulated changes. The PR contains the changelog and version bump, and merging it creates the tag and GitHub Release.
+
+The manual action is the merge of the release PR rather than a separate release workflow run. The release PR also provides a reviewable record of the version and changelog changes.
+
+#### Configuration
+
+`.github/release-please-config.json`
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "python",
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "bump-minor-pre-major": false,
+  "separate-pull-requests": false,
+  "changelog-sections": [
+    { "type": "feat",     "section": "Features" },
+    { "type": "fix",      "section": "Bug Fixes" },
+    { "type": "perf",     "section": "Performance" },
+    { "type": "refactor", "section": "Refactoring" },
+    { "type": "deps",     "section": "Dependencies" },
+    { "type": "docs",     "section": "Documentation", "hidden": true },
+    { "type": "chore",    "section": "Chores",        "hidden": true }
+  ],
+  "packages": {
+    ".": {
+      "package-name": "myapp",
+      "extra-files": [
+        {
+          "type": "yaml",
+          "path": "helm/myapp/Chart.yaml",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "yaml",
+          "path": "helm/myapp/Chart.yaml",
+          "jsonpath": "$.appVersion"
+        }
+      ]
+    }
+  }
+}
+```
+
+`.github/.release-please-manifest.json`
+
+```json
+{ ".": "0.1.0" }
+```
+
+The `extra-files` entries keep `Chart.yaml` in lockstep with the application version described under Version coupling. Independent chart versioning can place the chart in its own `packages` entry. That entry can use `"helm/myapp": { "release-type": "helm", "component": "chart" }` and `"separate-pull-requests": true`.
+
+#### release-please workflow
+
+`.github/workflows/release-b-please.yml`
+
+```yaml
+name: "Release B — release-please"
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      released:      ${{ steps.rp.outputs.release_created }}
+      tag:           ${{ steps.rp.outputs.tag_name }}
+      version:       ${{ steps.rp.outputs.version }}
+      major:         ${{ steps.rp.outputs.major }}
+      minor:         ${{ steps.rp.outputs.minor }}
+    steps:
+      # A GitHub App token (not GITHUB_TOKEN) so the tag push and the release PR
+      # can trigger downstream workflows. See Repository settings and tokens.
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id:      ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: googleapis/release-please-action@v5
+        id: rp
+        with:
+          token:         ${{ steps.app-token.outputs.token }}
+          config-file:   .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
+
+  image:
+    needs: release-please
+    if: needs.release-please.outputs.released == 'true'
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      version: ${{ needs.release-please.outputs.version }}
+      push:    true
+      latest:  true
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+  chart:
+    needs: [release-please, image]
+    if: needs.release-please.outputs.released == 'true'
+    uses: ./.github/workflows/_package-chart.yml
+    with:
+      chart_version: ${{ needs.release-please.outputs.version }}
+      app_version:   ${{ needs.release-please.outputs.version }}
+      push:          true
+    permissions:
+      contents: read
+      packages: write
+```
+
+#### Combining release candidates with release-please
+
+release-please does not tag every merge on its own. A hybrid model can run the scripted version job alongside release-please. The main branch then publishes only `-rc.N` tags and candidate images. release-please owns the GA tag and release:
+
+- Every merge to main produces the scripted `-rc.N` tag, candidate image, and candidate chart. The pre-release constraint keeps these artifacts out of normal umbrella dependency resolution.
+- The GA release is produced by merging the release-please PR. This creates the GA tag, changelog, GA image, and GA chart.
+- A forced major or minor bump can use `Release-As: 2.0.0` in an empty commit body. The release-please `release-as` input through `workflow_dispatch` is another option.
+
+```bash
+git commit --allow-empty -m "chore: release 2.0.0" -m "Release-As: 2.0.0"
+```
+
+### PR label driven releases
+
+This approach fits teams that do not use Conventional Commits. The bump comes from a release label on the merged PR.
+
+`.github/workflows/release-c-labels.yml`
+
+```yaml
+name: "Release C — label driven"
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      bump: ${{ steps.pick.outputs.bump }}
+    steps:
+      - id: pick
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+          bump=""
+          for want in major minor patch none; do
+            if jq -e --arg l "release:$want" 'index($l)' <<<"$LABELS" >/dev/null; then
+              bump="$want"; break
+            fi
+          done
+          if [[ -z "$bump" ]]; then
+            echo "::error::PR #${{ github.event.pull_request.number }} has no release:* label. Add release:major|minor|patch|none and re-run."
+            exit 1
+          fi
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+
+  version:
+    needs: gate
+    if: needs.gate.outputs.bump != 'none'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.calc.outputs.version }}
+      tag:     ${{ steps.calc.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, fetch-tags: true, ref: main }
+      - id: calc
+        run: ./scripts/next-version.sh --mode "${{ needs.gate.outputs.bump }}" --channel rc
+
+  # …tag / image / chart jobs identical to Approach A…
+```
+
+A required PR check can enforce the release label:
+
+```yaml
+# add to ci.yml
+  require-release-label:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          jq -e 'map(startswith("release:")) | any' <<<"$LABELS" \
+            || { echo "::error::Add one of release:major, release:minor, release:patch, release:none"; exit 1; }
+```
+
+The `pull_request` workflow does not run for `labeled` or `unlabeled` events unless those event types are listed. The workflow can include `types: [opened, synchronize, reopened, labeled, unlabeled]` when label changes must trigger the checks.
+
+### python-semantic-release
+
+This approach fits a Python package that is published to an internal PyPI. `python-semantic-release` manages `pyproject.toml`, the changelog, the tag, and the PyPI upload in one release flow. It uses Conventional Commits like scripted auto-tagging.
+
+```yaml
+  release:
+    runs-on: ubuntu-latest
+    concurrency: release
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - id: release
+        uses: python-semantic-release/python-semantic-release@v10.6.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.release.outputs.released == 'true'
+```
+
+`pyproject.toml`:
+
+```toml
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["helm/myapp/Chart.yaml:version", "helm/myapp/Chart.yaml:appVersion"]
+branch = "main"
+upload_to_pypi = false
+build_command = "pip install build && python -m build"
+```
+
+This approach adds the most value when the Python package is a published artifact. A service that ships only the image and chart has fewer reasons to add the extra release dependency.
+
+## Shared building blocks
+
+All release approaches can share these two reusable workflows. They form the common image and chart build layer.
+
+### Build image workflow
+
+`.github/workflows/_build-image.yml`
+
+```yaml
+name: reusable — build image
+
+on:
+  workflow_call:
+    inputs:
+      version:   { required: true,  type: string }
+      push:      { required: false, type: boolean, default: false }
+      latest:    { required: false, type: boolean, default: false }
+      platforms: { required: false, type: string,  default: "linux/amd64,linux/arm64" }
+      context:   { required: false, type: string,  default: "." }
+      dockerfile:{ required: false, type: string,  default: "Dockerfile" }
+    outputs:
+      image:  { value: ${{ jobs.build.outputs.image }} }
+      digest: { value: ${{ jobs.build.outputs.digest }} }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      image:  ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v4
+        if: inputs.push
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ inputs.latest }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version }},enable=${{ inputs.latest }}
+            type=semver,pattern={{major}},value=${{ inputs.version }},enable=${{ inputs.latest }}
+          labels: |
+            org.opencontainers.image.version=${{ inputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context:    ${{ inputs.context }}
+          file:       ${{ inputs.dockerfile }}
+          platforms:  ${{ inputs.platforms }}
+          push:       ${{ inputs.push }}
+          load:       ${{ !inputs.push }}
+          tags:       ${{ steps.meta.outputs.tags }}
+          labels:     ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom:       true
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+          build-args: |
+            APP_VERSION=${{ inputs.version }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Image"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo "digest: ${{ steps.build.outputs.digest }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+```
+
+`load: true` does not support multi-platform builds. When `push` is false, a dry run can omit `load` or use `platforms: linux/amd64`. A conditional can keep dry runs multi-architecture while avoiding the `load` limitation.
+
+### Package chart workflow
+
+`.github/workflows/_package-chart.yml`
+
+```yaml
+name: reusable — package chart
+
+on:
+  workflow_call:
+    inputs:
+      chart_version: { required: true,  type: string }
+      app_version:   { required: true,  type: string }
+      push:          { required: false, type: boolean, default: false }
+      chart_dir:     { required: false, type: string,  default: "helm/myapp" }
+      oci_repo:      { required: false, type: string,  default: "" }
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.19.0
+
+      - name: Stamp versions
+        run: |
+          set -euo pipefail
+          sed -i -E "s|^version:.*|version: ${{ inputs.chart_version }}|"           "${{ inputs.chart_dir }}/Chart.yaml"
+          sed -i -E "s|^appVersion:.*|appVersion: \"${{ inputs.app_version }}\"|"   "${{ inputs.chart_dir }}/Chart.yaml"
+          cat "${{ inputs.chart_dir }}/Chart.yaml"
+
+      - name: Lint and template
+        run: |
+          helm lint "${{ inputs.chart_dir }}" --strict
+          helm template release-check "${{ inputs.chart_dir }}" > /tmp/rendered.yaml
+          wc -l /tmp/rendered.yaml
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          helm package "${{ inputs.chart_dir }}" --destination dist
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chart-${{ inputs.chart_version }}
+          path: dist/*.tgz
+          retention-days: 14
+
+      - name: Push to OCI registry
+        if: inputs.push
+        env:
+          OCI_REPO: ${{ inputs.oci_repo != '' && inputs.oci_repo || format('oci://ghcr.io/{0}/charts', github.repository_owner) }}
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          for pkg in dist/*.tgz; do
+            helm push "$pkg" "$OCI_REPO"
+          done
+
+      - name: Summary
+        run: |
+          {
+            echo "### Chart"
+            echo "- chart version: \`${{ inputs.chart_version }}\`"
+            echo "- appVersion: \`${{ inputs.app_version }}\`"
+            echo "- pushed: \`${{ inputs.push }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+```
+
+## Helm chart versioning and umbrella charts
+
+### Umbrella chart dependency
+
+In the umbrella repository:
+
+```yaml
+# umbrella/Chart.yaml
+apiVersion: v2
+name: platform
+version: 3.4.0            # the umbrella's own, independent version
+type: application
+dependencies:
+  - name: myapp
+    version: "~1.5.0"                              # patch-flexible, minor-pinned
+    repository: "oci://ghcr.io/<org>/charts"
+    condition: myapp.enabled
+  - name: otherservice
+    version: "2.1.3"
+    repository: "oci://ghcr.io/<org>/charts"
+```
+
+Then:
+
+```bash
+helm registry login ghcr.io -u <user> --password-stdin <<< "$GHCR_TOKEN"
+helm dependency update ./umbrella    # writes Chart.lock, downloads charts/*.tgz
+helm dependency build  ./umbrella    # reproducible: resolves from Chart.lock
+```
+
+`Chart.lock` records the dependency resolution used by the umbrella chart. It provides reproducible dependency builds in the same way that `poetry.lock` records Python dependencies. `helm dependency build` uses the lock file, while `helm dependency update` resolves dependencies again.
+
+### Dependency constraints
+
+The constraint can be agreed with the umbrella chart owners.
+
+| Constraint | Resolves to | Use when |
+|---|---|---|
+| `1.5.0` | exactly `1.5.0` | Maximum control. An umbrella PR is required for every bump |
+| `~1.5.0` | `>=1.5.0 <1.6.0` | Patches flow automatically. Minors still need a PR |
+| `^1.5.0` | `>=1.5.0 <2.0.0` | Minors flow automatically |
+| `1.5.0-rc.3` | that exact RC | Explicitly testing a candidate in a staging umbrella |
+
+Pre-releases are excluded from `~` and `^` matching. This keeps release-candidate charts out of production umbrella dependency resolution.
+
+### Notifying the umbrella repository on a GA release
+
+Two notification models cover the main cases:
+
+A push model lets the service repository request an umbrella repository change. The manual release workflow can dispatch that request:
+
+```yaml
+  notify-umbrella:
+    needs: [version, chart]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id:       ${{ vars.RELEASE_APP_ID }}
+          private-key:  ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner:        ${{ github.repository_owner }}
+          repositories: umbrella-chart
+
+      - name: Dispatch bump request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh workflow run bump-dependency.yml \
+            --repo ${{ github.repository_owner }}/umbrella-chart \
+            --field chart=myapp \
+            --field version=${{ needs.version.outputs.version }} \
+            --field source_repo=${{ github.repository }}
+```
+
+The umbrella repository's `bump-dependency.yml` can edit `Chart.yaml` and run `helm dependency update`. It can then raise a PR with an action such as `peter-evans/create-pull-request@v7`.
+
+A pull model reverses the direction. A scheduled workflow in the umbrella repository can list chart tags in GHCR and raise a batched PR. This uses fewer cross-repository tokens and can reduce the number of dependency PRs.
+
+Polling fits setups with several source repositories, because one scheduled workflow can batch updates. Push notifications fit smaller setups where each release needs an immediate dependency request.
+
+### Independent chart versioning
+
+Independent chart versioning can use path-scoped detection in the version job:
+
+```yaml
+      - id: changed
+        run: |
+          base=$(git describe --tags --abbrev=0 --match 'chart-v*' 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          if git diff --quiet "$base" HEAD -- helm/; then
+            echo "chart_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "chart_changed=true"  >> "$GITHUB_OUTPUT"
+          fi
+```
+
+The chart version changes when `chart_changed == true` or `appVersion` changes. An application change also requires a new chart version so the umbrella chart can reference the new image.
+
+Independent versioning has an important consequence. An application-only release still needs a chart version bump because `appVersion` changed and the umbrella chart pins the chart version. In practice, the chart can patch-bump for every application release and also receive its own version changes for template updates.
+
+## Manual GA release workflow
+
+This workflow provides the shared manual GA path for all release approaches. It resolves a version from the selected ref and publishes the GA tag, image, and chart.
+
+`.github/workflows/release-manual.yml`
+
+```yaml
+name: "Release — manual GA"
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump relative to the last GA tag"
+        type: choice
+        options: [major, minor, patch, explicit]
+        default: minor
+      explicit_version:
+        description: "Exact version when bump=explicit, e.g. 2.0.0 (no leading v)"
+        type: string
+        required: false
+      ref:
+        description: "Ref to release from"
+        type: string
+        default: main
+      dry_run:
+        description: "Compute and build, but do not tag or push"
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-ga
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate inputs
+        run: |
+          if [[ "${{ inputs.bump }}" == "explicit" && -z "${{ inputs.explicit_version }}" ]]; then
+            echo "::error::bump=explicit requires explicit_version"; exit 1
+          fi
+          if [[ -n "${{ inputs.explicit_version }}" ]] \
+             && ! [[ "${{ inputs.explicit_version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::explicit_version must be MAJOR.MINOR.PATCH"; exit 1
+          fi
+
+  version:
+    needs: guard
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag:     ${{ steps.resolve.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Ensure CI is green on this ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          state=$(gh api "repos/${{ github.repository }}/commits/$(git rev-parse HEAD)/status" --jq '.state')
+          echo "combined status: $state"
+          [[ "$state" == "success" ]] || { echo "::error::CI is not green on ${{ inputs.ref }}"; exit 1; }
+
+      - id: resolve
+        run: |
+          if [[ "${{ inputs.bump }}" == "explicit" ]]; then
+            v="${{ inputs.explicit_version }}"
+            echo "version=$v" >> "$GITHUB_OUTPUT"
+            echo "tag=v$v"    >> "$GITHUB_OUTPUT"
+          else
+            ./scripts/next-version.sh --mode "${{ inputs.bump }}" --channel ga
+          fi
+
+      - name: Refuse to overwrite an existing tag
+        run: |
+          if git rev-parse "${{ steps.resolve.outputs.tag }}" >/dev/null 2>&1; then
+            echo "::error::Tag ${{ steps.resolve.outputs.tag }} already exists"; exit 1
+          fi
+
+  image:
+    needs: version
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      push:    ${{ !inputs.dry_run }}
+      latest:  ${{ !inputs.dry_run }}
+    permissions: { contents: read, packages: write, id-token: write }
+
+  chart:
+    needs: [version, image]
+    uses: ./.github/workflows/_package-chart.yml
+    with:
+      chart_version: ${{ needs.version.outputs.version }}
+      app_version:   ${{ needs.version.outputs.version }}
+      push:          ${{ !inputs.dry_run }}
+    permissions: { contents: read, packages: write }
+
+  publish:
+    needs: [version, image, chart]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    environment: production        # add required reviewers here for a human gate
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with: { ref: ${{ inputs.ref }}, fetch-depth: 0 }
+
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" --title "$TAG" --generate-notes --latest
+```
+
+`environment: production` with required reviewers provides an approval gate inside the workflow. A default `dry_run: true` also makes a normal manual invocation non-publishing until a real release is explicitly selected.
+
+## Repository settings and tokens
+
+### Workflow permissions
+
+A read-only repository default limits workflow permissions. Individual jobs can request the permissions they need under Settings → Actions → General → Workflow permissions → "Read repository contents and packages permissions."
+
+| Need | Permission |
+|---|---|
+| Push tags, create releases | `contents: write` |
+| Push to GHCR (image + OCI chart) | `packages: write` |
+| Create/update the release PR | `pull-requests: write` |
+| OIDC (cosign keyless, AWS assume-role) | `id-token: write` |
+
+### The GITHUB_TOKEN behavior
+
+This behavior is a common source of confusing release failures.
+
+Events triggered by `GITHUB_TOKEN` do not start new workflow runs. A tag such as `v1.5.0-rc.1` pushed with `GITHUB_TOKEN` does not trigger a separate `on: push: tags:` workflow. GitHub uses this behavior to prevent recursive workflow runs.
+
+The main alternatives are to keep dependent work in the same workflow run or use a separate token. A GitHub App token can come from `actions/create-github-app-token@v3`. A fine-grained PAT can also be stored as a secret. A GitHub App token supports scoped, auditable access and automatic rotation. A PAT ties the release to a human account and can expire.
+
+A GitHub App configuration can use the following settings:
+
+- Org settings → Developer settings → GitHub Apps → New.
+- Repository permissions include Contents `read & write`, Pull requests `read & write`, Packages `read & write`, and Metadata `read`.
+- The App is installed on both the service repository and the umbrella repository.
+- `APP_ID` is stored as a repository or organization variable, and the private key is stored as a secret.
+
+### Branch protection on main
+
+- A PR is required before merging, with at least one approval.
+- Required status checks include `code-quality`, `lint`, `unit-test`, `integration-test`, and `pr-title-lint`.
+- Branches are required to be up to date before merging.
+- Squash merging is enabled, while merge commits and rebase merging are disabled.
+- The squash commit message default is "Pull request title and description."
+- The release GitHub App is included in the bypass list when release-please must push to `main`.
+
+### Tag protection
+
+Under Settings → Rules → Rulesets → New tag ruleset, the tag pattern can be `v*`. Tag creation and deletion can be restricted to the release App. This prevents manual tags from changing release numbering.
+
+### Release concurrency
+
+The release workflows use `cancel-in-progress: false` so concurrent release jobs queue instead of canceling each other. This also prevents two merges from calculating the same next version.
+
+## Approach comparison
+
+| | Scripted auto-tagging | release-please | PR labels | python-semantic-release |
+|---|---|---|---|---|
+| Tags every main merge | Yes, natively | No, requires the scripted approach alongside it | Yes | No |
+| Changelog quality | GitHub auto-notes | High, curated and committed | Weak | Good |
+| Version committed to repo | No | Yes, in the release PR | No | Yes |
+| Manual major/minor | `workflow_dispatch` | `Release-As:` or `release-as` input | `workflow_dispatch` | commit footer |
+| Chart.yaml sync | Repository script | `extra-files` | Repository script | `version_variables` |
+| Third-party deps | None | 1 action | None | 1 action |
+| Debuggability | High, Bash | Medium | High | Medium |
+| Multi-chart future | Manual work | Native, manifest mode | Manual work | Poor |
+
+## Gotchas and troubleshooting
+
+| Symptom | Cause | Resolution |
+|---|---|---|
+| Tag pushed, no downstream workflow ran | `GITHUB_TOKEN` does not trigger workflows | Same workflow run, or a GitHub App token (see The GITHUB_TOKEN behavior) |
+| `git describe` returns nothing | Shallow clone | Full clone with `fetch-depth: 0` and `fetch-tags: true` |
+| Two runs computed the same version | Race on concurrent merges | Queue release runs with `concurrency.group` and `cancel-in-progress: false` |
+| `helm push` → `unauthorized` | Registry login or package visibility | `helm registry login ghcr.io`, plus package visibility and repository linking in GHCR settings |
+| `helm dependency update` → `no cached repo found` | OCI repos are not `helm repo add`-able | Direct `oci://` URL in `dependencies[].repository`; no `helm repo add` |
+| Umbrella pulled an `-rc` chart | Constraint includes a pre-release, or a GA-style tag was used | `~x.y.z` or `^x.y.z` constraints, with candidate versions suffixed |
+| `Chart.yaml` version rejected | Helm requires strict SemVer for `version` | No `v` prefix in `Chart.yaml`. Use `v` only on Git tags |
+| `docker/build-push-action` fails with `load` | `load: true` is single-platform only | `platforms: linux/amd64` for dry runs |
+| `release-please` opens no PR | No releasable commits, or wrong `release-type` | `feat:` or `fix:` commits since the last tag, plus the correct manifest path |
+| Release created but `pyproject.toml` still says `0.0.0` | Scripted auto-tagging stamps versions in the workspace only | Expected for scripted auto-tagging (see Version stamper), or use the release-please release PRs or python-semantic-release approach |
+| Integration tests pass on PR, fail on main | Merge skew | "Require branches to be up to date before merging" |
+
+### Rolling back a bad release
+
+```bash
+# Delete the GitHub release and tag (only if nothing consumed it)
+gh release delete v1.5.0 --yes --cleanup-tag
+
+# Chart: never delete a published version — publish 1.5.1 that reverts.
+# Image: retag `latest` back to the previous good digest.
+docker buildx imagetools create \
+  --tag ghcr.io/<org>/<repo>:latest \
+  ghcr.io/<org>/<repo>@sha256:<previous-good-digest>
+```
+
+Once the umbrella chart has pulled a chart version, that version can be treated as immutable. A rollback then uses a new chart version rather than deleting the published version. Deleting it can break every `Chart.lock` entry that references it.
+
+## Example rollout sequence
+
+| Phase | Actions | Exit criterion |
+|---|---|---|
+| Prepare | PR-title lint; squash-only merges; branch protection; tag ruleset; GitHub App | Two weeks of clean conventional PR titles |
+| Sandbox | Each approach is tested in a throwaway repository with several real merges and a scorecard | Scorecard completed, approach selected |
+| Shadow | Reusable workflows and the selected release workflow use `dry_run: true` on the automatic path | Five main merges produce correct versions with no artifacts pushed |
+| Candidates live | The automatic path publishes rc tags, images, and charts | Umbrella `Chart.lock` still resolves to GA only |
+| GA live | The first real `release-manual.yml` run uses `dry_run=false` | Umbrella builds against the new GA chart in staging |
+| Umbrella wiring | The umbrella notification workflow is implemented as described under Notifying the umbrella repository on a GA release | An app release produces an umbrella PR within 24 hours |
+| Document | `CONTRIBUTING.md` defines commit conventions and `RELEASING.md` contains the runbook | A team member can cut a release without extra help |
+
+## References
+
+- [Semantic Versioning 2.0.0](https://semver.org/)
+- [Conventional Commits 1.0.0](https://www.conventionalcommits.org/)
+- [GitHub Actions: reusable workflows](https://docs.github.com/actions/sharing-automations/reusing-workflows)
+- [GitHub Actions: GITHUB_TOKEN and triggering workflows](https://docs.github.com/actions/security-for-github-actions/security-guides/automatic-token-authentication)
+- [GitHub Actions: concurrency](https://docs.github.com/actions/writing-workflows/workflow-syntax-for-github-actions#concurrency)
+- [Helm: chart dependencies](https://helm.sh/docs/helm/helm_dependency/)
+- [Helm: OCI registries](https://helm.sh/docs/topics/registries/)
+- [Helm: Chart.yaml fields](https://helm.sh/docs/topics/charts/)
+- [release-please](https://github.com/googleapis/release-please)
+- [release-please-action](https://github.com/googleapis/release-please-action)
+- [python-semantic-release](https://python-semantic-release.readthedocs.io/)
+- [chart-releaser-action](https://github.com/helm/chart-releaser-action)
+- [docker/metadata-action tagging reference](https://github.com/docker/metadata-action)
+- [actions/create-github-app-token](https://github.com/actions/create-github-app-token)
